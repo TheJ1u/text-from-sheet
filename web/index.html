@@ -281,7 +281,8 @@ if(typeof window!=="undefined")window.SMS=SMS;
   }
   function renderChips(){
     const box=$("chips");box.innerHTML="";
-    const names=["first_name",...S.columns.filter(c=>!["firstname","first"].includes(SMS.key(c)))];
+    const HIDE=new Set(["firstname","first","phone","phonenumber","consent","consentdate","consentsource","optout","optedout","donottext","dnc","unsubscribed","status","messagetype","template","notes","note","message","timezone"]);
+    const names=["first_name",...S.columns.filter(c=>!HIDE.has(SMS.key(c)))];
     [...new Set(names)].forEach(n=>{const b=document.createElement("button");b.type="button";b.className="chip";b.textContent="{"+n+"}";
       b.onclick=()=>{const t=$("msg"),s=t.selectionStart||t.value.length,e=t.selectionEnd||s,tok="{"+n+"}";t.value=t.value.slice(0,s)+tok+t.value.slice(e);t.focus();t.selectionStart=t.selectionEnd=s+tok.length;updatePreview()};
       box.appendChild(b)});

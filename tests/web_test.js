@@ -158,6 +158,14 @@ t("UI: sensitive text blocks the Open link; no opt-out line is ever added", () =
   assert.strictEqual($("open").hasAttribute("href"), false);
 });
 
+t("insert buttons show useful columns only (no Consent, Status, Opt Out...)", () => {
+  const w = page();
+  const d = w.document;
+  w.SMSUI.loadText("First Name,Last Name,Phone,Consent,Status,Opt Out,Event Date\nAva,Martinez,801-555-0101,yes,New,,Fri");
+  const chips = [...d.querySelectorAll("#chips button")].map(b => b.textContent);
+  deq(chips, ["{first_name}", "{Last Name}", "{Event Date}"]);
+});
+
 t("UI: no recipient is ever reachable without an individual open+confirm (no send-all control)", () => {
   assert.ok(!/send all|send to all|blast/i.test(html.replace(/Text From Sheet/g, "")));
 });

@@ -155,7 +155,7 @@ def main(argv=None) -> int:
         print("Note: " + n)
     print(f"Ready: {len(ready)}   Skipped: {len(rej)}   Already sent in this batch: {plan['already_done']}")
     for r in rej[:10]:
-        print(f"  skipped row {r['row']} ({r['name']}): {r['reasons']}")
+        print(f"  skipped row {r['row']} ({r['name']}): {ss.plain_reason(r['reasons'])}")
     print("\nPreview:")
     for item in ready[:3]:
         print(f"  To {item['name']} {item['phone']}: {item['message']}  [+ {attach.name}]")

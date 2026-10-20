@@ -8,6 +8,7 @@ make_stub() {  # name, script
   chmod 700 "$DEST/$1"
 }
 make_stub "Text-0-Check-setup" check_setup.sh
+make_stub "Text-0-Choose-list" choose_list.sh
 make_stub "Text-1-Preview" preview.sh
 make_stub "Text-2-Send-test-to-me" send_test.sh
 make_stub "Text-3-Start" start.sh

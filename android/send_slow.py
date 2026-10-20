@@ -241,6 +241,43 @@ def acquire_lock(path: Path) -> bool:
     return True
 
 
+PLAIN = {
+    "missing_phone": "no phone number",
+    "phone_scientific_notation": "phone number was damaged by Excel (like 8.01E+09); format that column as Text",
+    "phone_has_extension": "phone number has an extension",
+    "phone_has_letters": "phone number has letters in it",
+    "phone_bad_length": "phone number is the wrong length",
+    "phone_needs_country_code": "phone number is missing its area code",
+    "phone_invalid_nanp": "not a valid US phone number",
+    "opted_out": "marked Opt Out",
+    "status_suppressed": "Status column says do not contact",
+    "no_affirmative_consent": "Consent column isn't \"yes\"",
+    "no_consent_column": "your list has no Consent column (your setting requires one)",
+    "on_suppression_list": "on your do-not-text list",
+    "duplicate_phone": "same number as an earlier row",
+    "malformed_row_check_commas": "row has extra commas; check it in Excel",
+    "empty_message": "the message is empty",
+    "unfilled_placeholder": "the message has a {blank} that wasn't filled in",
+}
+
+
+def plain_reason(codes: str) -> str:
+    """Turn reason codes like 'on_suppression_list' into words for the screen."""
+    out = []
+    for c in codes.split(";"):
+        if c in PLAIN:
+            out.append(PLAIN[c])
+        elif c.startswith("missing_field:"):
+            out.append("blank " + c.split(":", 1)[1] + " (fill it in, or set a fallback word)")
+        elif c.startswith("unknown_timezone:"):
+            out.append("time zone \"" + c.split(":", 1)[1] + "\" not recognized")
+        elif c.startswith("sensitive_"):
+            out.append("message would include sensitive info (" + c[len("sensitive_"):].replace("_", " ") + ")")
+        else:
+            out.append(c.replace("_", " "))
+    return "; ".join(out)
+
+
 def termux_sender(sim=None):
     def send(phone, text):
         cmd = ["termux-sms-send", "-n", phone]
@@ -484,7 +521,7 @@ def main(argv=None) -> int:
         print("\n" + bday_note)
     print(f"\nReady to text: {len(ready)}   Skipped: {len(rej)}   Already done (earlier run): {plan['already_done']}")
     for r in rej[:10]:
-        print(f"  skipped row {r['row']} ({r['name']}): {r['reasons']}")
+        print(f"  skipped row {r['row']} ({r['name']}): {plain_reason(r['reasons'])}")
     if len(rej) > 10:
         print(f"  ...and {len(rej) - 10} more")
     print("\nPreview:")

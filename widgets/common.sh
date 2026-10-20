@@ -11,5 +11,5 @@ FLAGS="--suppression do_not_text.csv"
 CAMPAIGN="$(cat campaign.txt 2>/dev/null)"; CAMPAIGN="${CAMPAIGN:-mytexts}"
 need_ready() {
   [ -f message.txt ] || { echo "No message yet. Tap 'Text-6-Change-message' first."; pause; exit 1; }
-  [ -f list.csv ] || { echo "No list.csv found. Save your list in Downloads as list.csv (needs a Phone column)."; pause; exit 1; }
+  [ -f list.csv ] || { echo "No list yet. Tap Text-0-Choose-list and pick your Excel or CSV file (it needs a Phone column)."; pause; exit 1; }
 }

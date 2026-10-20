@@ -17,10 +17,10 @@ risky parts (bad numbers, duplicates, people who opted out, sensitive data, send
 | `android/scan_replies.py` | Reads received texts, finds "stop / remove me" replies from people on your list, adds them to the never-text list after a typed YES | Built; tested with fake data |
 | `android/send_picture.py` | Picture/file mode: opens Messages for each person with the number, message and picture filled in; you tap Send, then Enter for the next | Built; tested with a fake launcher, not on a phone |
 | `tools/sms_prep.py` | Rules engine: phone normalization (E.164), consent / opt-out / suppression, dedupe, sensitive-data blocking, templates, resume | Built; 36 tests |
-| `widgets/` | One-tap home-screen buttons for Android (Termux:Widget): Check setup, Preview, Test-to-me, Start, Status, Stop, Change message, Do-not-text, Check replies, Birthday setup, Send with picture | Built; script-tested in a temp folder, not on a phone |
+| `widgets/` | One-tap home-screen buttons for Android (Termux:Widget): Check setup, Choose list (phone file picker, Excel or CSV), Preview, Test-to-me, Start, Status, Stop, Change message, Do-not-text, Check replies, Birthday setup, Send with picture | Built; script-tested in a temp folder, not on a phone |
 | `docs/BUILD_SHORTCUT.md` | Exact build spec for an iPhone Shortcut version | Spec only; not built or tested on a device |
 
-**Honest status:** all logic is covered by automated tests (123 Python + 20 JavaScript). Nothing has yet been
+**Honest status:** all logic is covered by automated tests (132 Python + 21 JavaScript). Nothing has yet been
 tested on a physical phone; do the small real-number test in `docs/PHONE_SETUP.md` first.
 
 ## How the Android sender works
@@ -36,7 +36,7 @@ never invents a missing name, and the log records "submitted," never "delivered.
 
 ## Quick start
 ```
-python3 -m unittest discover -s tests                     # 123 tests
+python3 -m unittest discover -s tests                     # 132 tests
 python3 android/send_slow.py data/sample_contacts.csv --message "Hi {first_name}!" \
     --campaign demo --dry-run                             # preview only, sends nothing
 ```

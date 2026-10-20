@@ -2,7 +2,7 @@
 # One-time (and again whenever you change the birthday message): sets the message, asks for your
 # one-time approval, and turns on the daily check. Your list needs a Birthday column (like 03/14).
 . "$(dirname "$0")/common.sh"
-[ -f list.csv ] || { echo "No list.csv found in Downloads. It needs Phone and Birthday columns."; pause; exit 1; }
+[ -f list.csv ] || { echo "No list yet. Tap Text-0-Choose-list first (it needs Phone and Birthday columns)."; pause; exit 1; }
 echo "Birthday message. Put {first_name} where the name goes. Keep it a simple greeting."
 echo "Example: Happy birthday, {first_name}! Hope it's a great one. - Jordan"
 read -r -p "Message: " MSG

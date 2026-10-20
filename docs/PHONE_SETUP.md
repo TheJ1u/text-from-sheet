@@ -5,7 +5,7 @@
 2. **Termux:API** (same): https://f-droid.org/packages/com.termux.api/
 
    If the phone asks to "allow installs from this browser," say yes, then open each file to install.
-3. Save your contact list in **Downloads** and name it `list.csv`. It needs a column named **Phone**.
+3. Your contact list needs a column named **Phone**. With the buttons below, you just tap **Text-0-Choose-list** and pick the Excel or CSV file (from Downloads, email or Drive). Without the buttons, save it in **Downloads** as `list.csv`.
 
 ## Part 2: Settings (no typing)
 - Settings > Apps > **Termux:API** > Permissions > **SMS** > Allow
@@ -32,11 +32,12 @@ cp ~/storage/downloads/list.csv ~/text-tool/ && cd ~/text-tool
 ```
 bash ~/text-tool/widgets/install_widgets.sh
 ```
-3. Long-press the home screen > **Widgets** > **Termux:Widget** > add it. You get nine buttons:
+3. Long-press the home screen > **Widgets** > **Termux:Widget** > add it. You get these buttons:
 
 | Button | What it does |
 |---|---|
 | Text-0-Check-setup | Checks everything is installed and allowed. Sends nothing. |
+| Text-0-Choose-list | Opens the phone's file picker: tap your Excel (.xlsx) or CSV list and it becomes the list. |
 | Text-1-Preview | Shows who will get what. Sends nothing. |
 | Text-2-Send-test-to-me | Sends ONE text, exactly as people will get it, to your own number. |
 | Text-3-Start | Starts the real send. Type YES, then SEND. |
@@ -48,7 +49,7 @@ bash ~/text-tool/widgets/install_widgets.sh
 | Text-9-Birthday-setup | Sets up automatic birthday texts (see below). |
 | Text-P-Send-with-picture | Sends your message with a picture (see below). |
 
-Order: 0, then 1, then 2, then 3. Run 8 now and then, and always before a new batch.
+Order: Check setup, Choose list, then 1, 2, 3. Run 8 now and then, and always before a new batch.
 
 ## Optional: send a picture or file with your message
 1. Save the picture in **Downloads** named `picture.jpg` (or `picture.png`).

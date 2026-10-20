@@ -36,7 +36,7 @@ class WidgetTests(unittest.TestCase):
         r = self.sh("install_widgets.sh", stdin="Hi {first_name}, dinner Friday?\nfall-dinner\n\n")
         self.assertEqual(r.returncode, 0, r.stderr)
         names = sorted(p.name for p in (self.home / ".shortcuts").iterdir())
-        self.assertEqual(names, ["Text-0-Check-setup", "Text-1-Preview", "Text-2-Send-test-to-me", "Text-3-Start", "Text-4-Status", "Text-5-Stop", "Text-6-Change-message", "Text-7-Do-not-text", "Text-8-Check-replies", "Text-9-Birthday-setup", "Text-P-Send-with-picture"])
+        self.assertEqual(names, ["Text-0-Check-setup", "Text-0-Choose-list", "Text-1-Preview", "Text-2-Send-test-to-me", "Text-3-Start", "Text-4-Status", "Text-5-Stop", "Text-6-Change-message", "Text-7-Do-not-text", "Text-8-Check-replies", "Text-9-Birthday-setup", "Text-P-Send-with-picture"])
         for p in (self.home / ".shortcuts").iterdir():
             self.assertTrue(os.access(p, os.X_OK))
             self.assertIn("widgets/", p.read_text())
@@ -77,7 +77,7 @@ class WidgetTests(unittest.TestCase):
         r = self.sh("do_not_text.sh", stdin="(801) 555-0101\n\n")
         self.assertIn("Saved", r.stdout)
         out = self.sh("preview.sh", stdin="\n").stdout
-        self.assertIn("on_suppression_list", out)
+        self.assertIn("on your do-not-text list", out)
         self.assertNotIn("Hi Ava!", out)
         bad = self.sh("do_not_text.sh", stdin="123\n\n")
         self.assertNotEqual(bad.returncode, 0)
@@ -91,7 +91,7 @@ class WidgetTests(unittest.TestCase):
         self.sh("set_message.sh", stdin="Hi {first_name}!\nt1\ny\n\n")
         self.assertTrue((self.tool / "require_consent.txt").exists())
         out = self.sh("preview.sh", stdin="\n").stdout
-        self.assertIn("no_consent_column", out)
+        self.assertIn("no Consent column", out)
         self.sh("set_message.sh", stdin="Hi {first_name}!\nt1\nn\n\n")
         self.assertFalse((self.tool / "require_consent.txt").exists())
 
@@ -161,6 +161,23 @@ class WidgetTests(unittest.TestCase):
         r = self.sh("picture_send.sh", stdin="\n")
         self.assertIn("Picture/file: picture.jpg", r.stdout)
         self.assertIn("only works inside Termux", r.stdout)       # no Android here, so nothing opens
+
+    def test_choose_list_uses_the_file_picker_result(self):
+        b = self.home / "pickbin"
+        b.mkdir()
+        src = self.home / "from_drive.csv"
+        src.write_text("First Name,Phone\nZoe,801-555-0177\n")
+        (b / "termux-storage-get").write_text(f'#!/bin/sh\ncp "{src}" "$1"\n')
+        (b / "termux-storage-get").chmod(0o755)
+        self.env["PATH"] = f"{b}:{self.env['PATH']}"
+        r = self.sh("choose_list.sh", stdin="\n")
+        self.assertIn("Got it: 1 people, 1 with a usable phone number", r.stdout, r.stdout + r.stderr)
+        self.assertIn("Zoe", (self.tool / "list.csv").read_text())
+        self.assertFalse((self.tool / ".picked_file").exists())
+
+    def test_choose_list_without_termux_api_explains(self):
+        r = self.sh("choose_list.sh", stdin="\n")
+        self.assertIn("needs the Termux:API app", r.stdout)
 
     def test_start_script_never_bypasses_the_typed_approval(self):
         src = (WID / "start.sh").read_text()
