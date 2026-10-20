@@ -9,3 +9,6 @@
 7. **Per-contact send windows** (e.g. no texts before 8am or after 9pm local) as a warning in the review screen.
 8. **CI**: run the unit tests on every change (GitHub Actions is free for this).
 9. **Learning angle** (your Information Systems path): this is a small data-pipeline pattern: *ingest, validate, transform, human-in-the-loop approval, audit log*. The same structure scales to any ops workflow and is good portfolio material.
+
+## Birthday automation: still unverified
+Built and tested with a fake clock and fake phone commands. Not yet confirmed on a real phone: that `cron` runs inside Termux after the one-time restart, that the phone stays awake enough, and that Android lets Termux send while the screen is off. Check `birthday_log.txt` after the first real birthday.

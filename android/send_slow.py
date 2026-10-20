@@ -22,7 +22,11 @@ Safety rules built in (not optional):
 from __future__ import annotations
 
 import argparse
+import calendar
 import csv
+import hashlib
+import json
+import os
 import re
 import shutil
 import subprocess
@@ -144,6 +148,99 @@ def build_plan(rows, template, cc="1", suppression=frozenset(), done=frozenset()
     return {"ready": ready, "rejected": rejected, "already_done": already}
 
 
+BDAY_KEYS = ("birthday", "birth date", "birthdate", "dob", "date of birth", "bday")
+MONTHS = {m.lower(): i for i, m in enumerate(calendar.month_name) if m}
+MONTHS.update({m.lower(): i for i, m in enumerate(calendar.month_abbr) if m})
+
+
+def parse_birthday(raw):
+    """Return (month, day) from 03/14, 3/14/1948, 1948-03-14, '1948-03-14 00:00:00' (Excel), 'March 14', or None.
+    Numeric dates are read US-style (month first)."""
+    t = (raw or "").strip()
+    if not t:
+        return None
+    m = re.match(r"^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T].*)?$", t)
+    if m:
+        mo, d = int(m.group(2)), int(m.group(3))
+    else:
+        m = re.match(r"^(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?$", t)
+        if m:
+            mo, d = int(m.group(1)), int(m.group(2))
+        else:
+            m = re.match(r"^([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s*\d{2,4})?$", t)
+            if not m or m.group(1).lower() not in MONTHS:
+                return None
+            mo, d = MONTHS[m.group(1).lower()], int(m.group(2))
+    if not (1 <= mo <= 12) or not (1 <= d <= calendar.monthrange(2000, mo)[1]):   # 2000 is a leap year
+        return None
+    return mo, d
+
+
+def is_birthday_today(md, today) -> bool:
+    if md is None:
+        return False
+    if md == (today.month, today.day):
+        return True
+    return md == (2, 29) and (today.month, today.day) == (2, 28) and not calendar.isleap(today.year)
+
+
+def birthday_of(row: dict):
+    for k in BDAY_KEYS:
+        if row.get(k, "").strip():
+            return parse_birthday(row[k])
+    return None
+
+
+def filter_birthdays(rows, today):
+    """Keep rows whose birthday is today. Returns (rows_today, rows_with_readable_birthday, unreadable_count)."""
+    todays, readable, bad = [], [], 0
+    for row in rows:
+        md = birthday_of(row[1])
+        if md is None:
+            bad += 1
+            continue
+        readable.append(row)
+        if is_birthday_today(md, today):
+            todays.append(row)
+    return todays, readable, bad
+
+
+def fingerprint(template, campaign, window, require_consent) -> str:
+    blob = json.dumps({"t": template, "c": campaign, "w": list(window), "rc": bool(require_consent)}, sort_keys=True)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def write_approval(path: Path, template, campaign, window, require_consent, now):
+    path.write_text(json.dumps({"fingerprint": fingerprint(template, campaign, window, require_consent),
+                                "approved_at": now.isoformat(timespec="seconds"), "campaign": campaign,
+                                "window": list(window), "message": template}, indent=2), encoding="utf-8")
+
+
+def approval_ok(path: Path, template, campaign, window, require_consent):
+    """(True, '') when the saved approval matches this exact message and rules; else (False, why)."""
+    if not path.exists():
+        return False, "no saved approval yet (run the birthday setup and type YES and SEND once)"
+    try:
+        saved = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return False, "approval file unreadable"
+    if saved.get("fingerprint") != fingerprint(template, campaign, window, require_consent):
+        return False, "the message or rules changed since you approved them; approve again"
+    return True, ""
+
+
+def acquire_lock(path: Path) -> bool:
+    """Only one automatic run at a time. A lock left by a dead process is cleaned up."""
+    if path.exists():
+        try:
+            os.kill(int(path.read_text().strip()), 0)
+            return False
+        except (ValueError, ProcessLookupError, PermissionError, OSError):
+            pass
+    path.write_text(str(os.getpid()))
+    return True
+
+
 def termux_sender(sim=None):
     def send(phone, text):
         cmd = ["termux-sms-send", "-n", phone]
@@ -238,7 +335,7 @@ def send_test(ready, to_number, sender, log_path, campaign, cc="1"):
 
 
 def run(ready, sender, sleep, log_path, campaign, interval, max_per_run, stop_file, out=print,
-        now_fn=datetime.now, window=DEFAULT_WINDOW, notify=None):
+        now_fn=datetime.now, window=DEFAULT_WINDOW, notify=None, same_day_only=False):
     interval = max(int(interval), MIN_INTERVAL)
     batch = ready[:max_per_run] if max_per_run else list(ready)
     sent = failed = consec = 0
@@ -252,12 +349,14 @@ def run(ready, sender, sleep, log_path, campaign, interval, max_per_run, stop_fi
                 pass  # a notification problem must never stop or change sending
     pending = list(batch)
     done_n = 0
+    start_date = now_fn().date()
     while pending:
         if Path(stop_file).exists():
             stopped = "STOP file found"
             break
         announced = False
         item = None
+        day_over = False
         while item is None:                              # next person whose own 8am-6pm window is open
             item = next((x for x in pending if item_ok_now(x, now_fn, window)), None)
             if item is not None:
@@ -273,8 +372,17 @@ def run(ready, sender, sleep, log_path, campaign, interval, max_per_run, stop_fi
             if Path(stop_file).exists():
                 break
             sleep(30)
+            if same_day_only and now_fn().date() != start_date:
+                day_over = True
+                break
+        if day_over:
+            stopped = "the day ended (birthday texts are only sent on the day)"
+            break
         if item is None or Path(stop_file).exists():
             stopped = "STOP file found"
+            break
+        if same_day_only and now_fn().date() != start_date:
+            stopped = "the day ended (birthday texts are only sent on the day)"
             break
         pending.remove(item)
         done_n += 1
@@ -323,6 +431,13 @@ def main(argv=None) -> int:
     ap.add_argument("--require-consent", action="store_true",
                     help="refuse anyone unless a Consent column says yes (also refuses lists with no Consent column)")
     ap.add_argument("--test-to", metavar="NUMBER", help="send ONE test text (first person's message) to your own number, then exit")
+    ap.add_argument("--birthdays-today", action="store_true",
+                    help="only people whose Birthday column is today; the batch name gets the year added, so nobody is texted twice a year")
+    ap.add_argument("--approve-auto", action="store_true",
+                    help="approve this exact message and rules ONCE (typed YES and SEND) so --auto may run unattended")
+    ap.add_argument("--auto", action="store_true",
+                    help="unattended run (for a daily timer). Only with --birthdays-today, only with a saved matching approval")
+    ap.add_argument("--approval-file", default="auto_approval.json")
     ap.add_argument("--status", action="store_true", help="show progress for this campaign and exit")
     ap.add_argument("--dry-run", action="store_true", help="preview only; sends nothing, writes nothing")
     args = ap.parse_args(argv)
@@ -339,20 +454,34 @@ def main(argv=None) -> int:
         print(f"Interval raised to the {MIN_INTERVAL}-second minimum.")
     template = args.message if args.message is not None else Path(args.message_file).read_text(encoding="utf-8").strip()
     log_path = Path(args.log)
-    plan = build_plan(sp.read_contacts(Path(args.contacts)), template, args.country_code,
+    if (args.auto or args.approve_auto) and not args.birthdays_today:
+        print("--auto and --approve-auto only work together with --birthdays-today.")
+        return 2
+    now = datetime.now()
+    campaign = f"{args.campaign}-{now.year}" if args.birthdays_today else args.campaign
+    rows = sp.read_contacts(Path(args.contacts))
+    bday_note = ""
+    if args.birthdays_today:
+        todays, readable, bad = filter_birthdays(rows, now.date())
+        bday_note = (f"Birthday mode: {len(todays)} birthday(s) today ({now:%b %d}); {len(readable)} people have a "
+                     f"readable birthday; {bad} have none or an unreadable one (they are never texted in this mode).")
+        rows = readable if args.approve_auto else todays
+    plan = build_plan(rows, template, args.country_code,
                       sp.load_suppression(args.suppression, args.country_code),
-                      load_done_phones(log_path, args.campaign), args.fallback, args.require_consent)
+                      load_done_phones(log_path, campaign), args.fallback, args.require_consent)
     ready, rej = plan["ready"], plan["rejected"]
     if args.status:
-        st = log_stats(log_path, args.campaign)
+        st = log_stats(log_path, campaign)
         total = len(ready) + plan["already_done"]
-        print(f"Campaign '{args.campaign}': {st['submitted']} of {total} submitted, {len(ready)} still to go, "
+        print(f"Campaign '{campaign}': {st['submitted']} of {total} submitted, {len(ready)} still to go, "
               f"{st['failed']} failed attempts. Last activity: {st['last'] or 'none yet'}.")
         print(f"Send window {window[0]:02d}:00-{window[1]:02d}:00; it is {datetime.now():%a %I:%M %p} on this phone now.")
         return 0
     interval = max(args.interval, MIN_INTERVAL)
     this_run = min(len(ready), args.max_per_run) if args.max_per_run else len(ready)
 
+    if bday_note:
+        print("\n" + bday_note)
     print(f"\nReady to text: {len(ready)}   Skipped: {len(rej)}   Already done (earlier run): {plan['already_done']}")
     for r in rej[:10]:
         print(f"  skipped row {r['row']} ({r['name']}): {r['reasons']}")
@@ -381,6 +510,57 @@ def main(argv=None) -> int:
     if args.dry_run:
         print("\nDry run: nothing sent, nothing written.")
         return 0
+    approval_path = Path(args.approval_file)
+    if args.approve_auto:
+        if not ready:
+            print("Nobody on the list has a readable birthday and passes the checks, so there is nothing to approve.")
+            return 2
+        print(f"\nYou are approving this exact message to go out automatically on each person's birthday "
+              f"(8am-6pm, one text at a time):\n  {ready[0]['message']}\n"
+              "If you change the message or rules, automatic sending stops until you approve again.")
+        if input("Type YES to confirm you have permission to text these people: ").strip() != "YES":
+            print("Cancelled.")
+            return 1
+        if input("Type SEND to turn on automatic birthday texts: ").strip() != "SEND":
+            print("Cancelled.")
+            return 1
+        write_approval(approval_path, template, args.campaign, window, args.require_consent, now)
+        Path("STOP").unlink(missing_ok=True)
+        print(f"Approved. Saved to {approval_path}. Automatic runs may now send this message on birthdays.")
+        return 0
+    if args.auto:
+        if Path("STOP").exists():
+            print("STOP file present: automatic birthday texts are paused. Run the birthday setup to turn them back on.")
+            return 0
+        good, why = approval_ok(approval_path, template, args.campaign, window, args.require_consent)
+        if not good:
+            print(f"Not sending: {why}.")
+            return 3
+        if not ready:
+            print("No birthdays to text right now.")
+            return 0
+        if not in_window(now, window):
+            print("Outside the send window; skipping (a birthday text a day late is not sent).")
+            return 0
+        if not shutil.which("termux-sms-send"):
+            print("termux-sms-send not found. Install Termux:API (app) and `pkg install termux-api`.")
+            return 2
+        lock = Path("birthday.lock")
+        if not acquire_lock(lock):
+            print("Another automatic run is already going; skipping.")
+            return 0
+        try:
+            if shutil.which("termux-wake-lock"):
+                subprocess.run(["termux-wake-lock"], check=False)
+            res = run(ready, termux_sender(args.sim), time.sleep, log_path, campaign, interval, args.max_per_run,
+                      Path("STOP"), window=window, notify=termux_notifier(), same_day_only=True)
+        finally:
+            lock.unlink(missing_ok=True)
+            if shutil.which("termux-wake-unlock"):
+                subprocess.run(["termux-wake-unlock"], check=False)
+        print(f"Done: {res['submitted']} submitted, {res['failed']} failed."
+              + (f" Stopped: {res['stopped']}." if res["stopped"] else ""))
+        return 0
     if args.test_to:
         if not ready:
             print("Nothing to test with.")
@@ -392,7 +572,7 @@ def main(argv=None) -> int:
         if input("Type SEND to send the test: ").strip() != "SEND":
             print("Cancelled.")
             return 1
-        ok, info = send_test(ready, args.test_to, termux_sender(args.sim), log_path, args.campaign, args.country_code)
+        ok, info = send_test(ready, args.test_to, termux_sender(args.sim), log_path, campaign, args.country_code)
         print("Test text submitted. Check that it arrived on that phone." if ok else f"Test failed: {info}")
         return 0 if ok else 1
     if not ready:
@@ -415,7 +595,7 @@ def main(argv=None) -> int:
     if shutil.which("termux-wake-lock"):
         subprocess.run(["termux-wake-lock"], check=False)
     try:
-        res = run(ready, termux_sender(args.sim), time.sleep, log_path, args.campaign,
+        res = run(ready, termux_sender(args.sim), time.sleep, log_path, campaign,
                   interval, args.max_per_run, stop_file, window=window, notify=termux_notifier())
     except KeyboardInterrupt:
         print("\nStopped by you. Progress is saved; run the same command to resume.")

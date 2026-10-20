@@ -16,6 +16,7 @@ make_stub "Text-5-Stop" stop.sh
 make_stub "Text-6-Change-message" set_message.sh
 make_stub "Text-7-Do-not-text" do_not_text.sh
 make_stub "Text-8-Check-replies" check_replies.sh
-echo "Buttons created (0 to 8). Start with Text-0-Check-setup."
+make_stub "Text-9-Birthday-setup" birthday_setup.sh
+echo "Buttons created (0 to 9). Start with Text-0-Check-setup."
 echo "Now: long-press your home screen > Widgets > Termux:Widget > add the shortcut list."
 [ -f "$SRC/../message.txt" ] || { echo; echo "Let's set your message now."; bash "$SRC/set_message.sh"; }

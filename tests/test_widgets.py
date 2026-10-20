@@ -36,7 +36,7 @@ class WidgetTests(unittest.TestCase):
         r = self.sh("install_widgets.sh", stdin="Hi {first_name}, dinner Friday?\nfall-dinner\n\n")
         self.assertEqual(r.returncode, 0, r.stderr)
         names = sorted(p.name for p in (self.home / ".shortcuts").iterdir())
-        self.assertEqual(names, ["Text-0-Check-setup", "Text-1-Preview", "Text-2-Send-test-to-me", "Text-3-Start", "Text-4-Status", "Text-5-Stop", "Text-6-Change-message", "Text-7-Do-not-text", "Text-8-Check-replies"])
+        self.assertEqual(names, ["Text-0-Check-setup", "Text-1-Preview", "Text-2-Send-test-to-me", "Text-3-Start", "Text-4-Status", "Text-5-Stop", "Text-6-Change-message", "Text-7-Do-not-text", "Text-8-Check-replies", "Text-9-Birthday-setup"])
         for p in (self.home / ".shortcuts").iterdir():
             self.assertTrue(os.access(p, os.X_OK))
             self.assertIn("widgets/", p.read_text())
@@ -106,6 +106,49 @@ class WidgetTests(unittest.TestCase):
         self.sh("set_message.sh", stdin="Hi {first_name}!\nt1\n\n")
         r = self.sh("send_test.sh", stdin="801-555-0199\n\n")
         self.assertIn("termux-sms-send not found", r.stdout)
+        self.assertFalse((self.tool / "send_log.csv").exists())
+
+    def _fake_bin(self):
+        b = self.home / "fakebin"
+        b.mkdir(exist_ok=True)
+        cron = self.home / "crontab.txt"
+        (b / "crontab").write_text(f'#!/bin/sh\nif [ "$1" = "-l" ]; then cat {cron} 2>/dev/null; else cat > {cron}; fi\n')
+        (b / "sv-enable").write_text("#!/bin/sh\nexit 0\n")
+        for f in b.iterdir():
+            f.chmod(0o755)
+        self.env["PATH"] = f"{b}:{self.env['PATH']}"
+        return cron
+
+    def test_birthday_setup_saves_message_approves_once_and_installs_timer(self):
+        from datetime import date
+        t = date.today()
+        (self.tool / "list.csv").write_text(f"First Name,Phone,Birthday\nAva,801-555-0101,{t.month:02d}/{t.day:02d}/1950\n")
+        cron = self._fake_bin()
+        r = self.sh("birthday_setup.sh", stdin="Happy birthday, {first_name}!\nYES\nSEND\n\n")
+        self.assertIn("Automatic birthday texts are ON", r.stdout, r.stdout + r.stderr)
+        self.assertEqual((self.tool / "birthday_message.txt").read_text().strip(), "Happy birthday, {first_name}!")
+        self.assertTrue((self.tool / "auto_approval.json").exists())
+        self.assertIn("widgets/birthday_run.sh", cron.read_text())
+        self.sh("birthday_setup.sh", stdin="Happy birthday, {first_name}!\nYES\nSEND\n\n")   # run twice
+        self.assertEqual(cron.read_text().count("birthday_run.sh"), 1)                          # no duplicate timer
+
+    def test_birthday_setup_without_typed_approval_turns_nothing_on(self):
+        from datetime import date
+        t = date.today()
+        (self.tool / "list.csv").write_text(f"First Name,Phone,Birthday\nAva,801-555-0101,{t.month:02d}/{t.day:02d}/1950\n")
+        cron = self._fake_bin()
+        r = self.sh("birthday_setup.sh", stdin="Hi {first_name}\nyes\nSEND\n\n")
+        self.assertIn("Not turned on", r.stdout)
+        self.assertFalse((self.tool / "auto_approval.json").exists())
+        self.assertFalse(cron.exists())
+
+    def test_birthday_run_refuses_without_approval_and_logs_why(self):
+        from datetime import date
+        t = date.today()
+        (self.tool / "list.csv").write_text(f"First Name,Phone,Birthday\nAva,801-555-0101,{t.month:02d}/{t.day:02d}/1950\n")
+        (self.tool / "birthday_message.txt").write_text("Happy birthday {first_name}\n")
+        subprocess.run(["bash", str(self.tool / "widgets" / "birthday_run.sh")], env=self.env, cwd=self.home, timeout=60)
+        self.assertIn("Not sending", (self.tool / "birthday_log.txt").read_text())
         self.assertFalse((self.tool / "send_log.csv").exists())
 
     def test_start_script_never_bypasses_the_typed_approval(self):

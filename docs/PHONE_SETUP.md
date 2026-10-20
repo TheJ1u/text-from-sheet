@@ -45,8 +45,16 @@ bash ~/text-tool/widgets/install_widgets.sh
 | Text-6-Change-message | Changes the message (and whether a Consent column is required). |
 | Text-7-Do-not-text | Adds a number that must never be texted. |
 | Text-8-Check-replies | Finds people who texted back stop / remove me and offers to add them to the never-text list. |
+| Text-9-Birthday-setup | Sets up automatic birthday texts (see below). |
 
 Order: 0, then 1, then 2, then 3. Run 8 now and then, and always before a new batch.
+
+## Optional: automatic birthday texts
+1. Add a **Birthday** column to `list.csv` (like `03/14` or `1948-03-14`). Month comes first.
+2. Tap **Text-9-Birthday-setup**. Type the birthday message, then type `YES` and `SEND` once. That is your approval for that exact message.
+3. Close Termux completely and open it once, so the daily timer starts.
+
+After that, once a day between 8am and 6pm, the phone texts only the people whose birthday is today, one text at a time, once per year each. If you change the message, automatic texts stop until you tap the button and approve again. **Text-5-Stop** pauses them. Keep it a simple greeting, keep the phone charged and set to Unrestricted battery, and look at `birthday_log.txt` after the first birthday to confirm it worked.
 
 ## Part 4: Preview (sends NOTHING)
 Change the words in quotes to your message first.

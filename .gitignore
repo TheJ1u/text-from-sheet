@@ -13,3 +13,8 @@ node_modules/
 message.txt
 campaign.txt
 require_consent.txt
+birthday_message.txt
+birthday_log.txt
+auto_approval.json
+birthday.lock
+do_not_text.csv

@@ -67,6 +67,7 @@ Export from Excel as **CSV (UTF-8)**; format phone cells as Text first.
 - The send window uses the **phone's** time unless your list has a `Timezone` column (for example `America/Los_Angeles`). With that column, each person is texted only during 8am-6pm in their own time zone; people outside it are skipped for now and picked up later. An unknown time zone name holds that person back.
 - `--require-consent` refuses everyone unless a Consent column says yes (and refuses a list with no such column). Recommended for any marketing-type texts.
 - `--test-to YOUR_NUMBER` sends one test text to your own phone, then exits.
+- Birthday mode: `--birthdays-today` keeps only people whose `Birthday` column is today and adds the year to the batch name (so nobody gets two in a year). Feb 29 birthdays are texted on Feb 28 in non-leap years. `--approve-auto` records a one-time typed approval of the exact message, hours and consent rule; `--auto` (used by the daily timer) refuses to send unless that approval still matches, skips if STOP exists, skips if outside the hours (a birthday text a day late is not sent), and uses a lock so two runs never overlap. `--auto` only works together with `--birthdays-today`.
 - `python3 android/scan_replies.py list.csv` finds people who texted back stop and adds them to `do_not_text.csv`.
 - A `--suppression` file that doesn't exist is an error (not silently ignored), so a typo can't skip your do-not-text list.
 - Curly quotes, emoji and accents make a text count 70 characters per piece instead of 160. The preview warns you.
