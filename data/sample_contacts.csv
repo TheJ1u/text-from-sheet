@@ -1,0 +1,16 @@
+First Name,Last Name,Phone Number,Message,Notes,Status,Consent,Consent Date,Consent Source,Opt Out,Message Type,Template,Appointment Date,Appointment Time,Event Name,Event Date
+Ava,Martinez,+1 (801) 555-0101,,Fictional test contact,New,Yes,2026-08-14,Web form,,service,appointment_reminder,Oct 24,2:30 PM,,
+Ben,Carter,801-555-0102,,Fictional test contact,New,Yes,2026-07-02,Signed paper form,,service,client_followup,,,,
+Chloe,Nguyen,8015550103,,Fictional test contact,New,Yes,2026-09-10,Event sign-up sheet,,marketing,event_invitation,,,Retirement Basics Workshop,Nov 6
+Daniel,Okafor,+44 20 7946 0958,Thanks for your note. I will call you Thursday afternoon.,Fictional test contact,New,Yes,2026-06-30,Email reply,,service,general,,,,
+Eva,Lindqvist,801-555-0105,,No consent recorded,New,,,,,service,client_followup,,,,
+Frank,Doyle,801-555-0106,,Asked not to be contacted,New,Yes,2026-05-01,Web form,Yes,service,client_followup,,,,
+Grace,Kim,801-555-0107,,On suppression list,New,Yes,2026-05-01,Web form,,service,client_followup,,,,
+Ava,Martinez,(801) 555-0101,,Duplicate of row 1,New,Yes,2026-08-14,Web form,,service,appointment_reminder,Oct 24,2:30 PM,,
+Henry,Brooks,555-0108,,Missing area code,New,Yes,2026-08-01,Web form,,service,client_followup,,,,
+Isla,Fernandez,1.80155501E+10,,Excel scientific-notation damage,New,Yes,2026-08-01,Web form,,service,client_followup,,,,
+Jack,Turner,801-555-0111,Your Medicare number 1EG4-TE5-MK73 is on file.,Sensitive ID in message,New,Yes,2026-08-01,Web form,,service,,,,,
+Kara,Singh,801-555-0112,Guaranteed lowest premium! Save $200 this month.,Risky marketing claim,New,Yes,2026-08-01,Web form,,marketing,,,,,
+Liam,Patel,801-555-0113,,Already handled,Sent,Yes,2026-08-01,Web form,,service,client_followup,,,,
+Mia,Rossi,801-555-0114,,Marketing without consent date,New,Yes,,,,marketing,event_invitation,,,Retirement Basics Workshop,Nov 6
+,Wright,801-555-0115,,Missing first name,New,Yes,2026-08-01,Web form,,service,client_followup,,,,

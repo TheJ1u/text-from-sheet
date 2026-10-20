@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#0b6b5d">
+<title>Text From Sheet</title>
+<style>
+:root{--bg:#f6f7f5;--card:#fff;--ink:#16201d;--mute:#5d6b66;--line:#dfe5e1;--brand:#0b6b5d;--brand-ink:#fff;--warn:#9a4b00;--warn-bg:#fff3e0;--bad:#a1281d;--ok:#1b7a3d}
+@media(prefers-color-scheme:dark){:root{--bg:#101513;--card:#18201d;--ink:#eaf0ed;--mute:#9db0a9;--line:#2a3532;--brand:#3fc3ad;--brand-ink:#08201b;--warn:#ffb866;--warn-bg:#33260f;--bad:#ff8a80;--ok:#6fd58f}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:560px;margin:0 auto;padding:16px 16px 64px}
+h1{font-size:1.6rem;margin:8px 0 4px}
+h2{font-size:1.05rem;margin:0 0 10px;display:flex;gap:10px;align-items:center}
+.n{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--brand);color:var(--brand-ink);font-size:.9rem}
+.sub{color:var(--mute);margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:0 0 14px}
+.hint{color:var(--mute);font-size:.9rem;margin:10px 0 0}
+label.filebtn,button,a.btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 16px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:600 1rem system-ui,sans-serif;text-decoration:none;cursor:pointer;width:100%}
+label.filebtn input{display:none}
+.primary,label.filebtn{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+button.primary:disabled,a.btn[aria-disabled=true]{opacity:.45;pointer-events:none}
+.row{display:flex;gap:8px;margin-top:10px}.row>*{flex:1}
+textarea,input[type=text]{width:100%;border:1px solid var(--line);border-radius:10px;padding:12px;font:inherit;background:var(--bg);color:var(--ink)}
+textarea{min-height:110px;resize:vertical}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.chip{min-height:34px;width:auto;padding:0 12px;border-radius:999px;font-size:.88rem;font-weight:500}
+.preview{background:var(--bg);border:1px dashed var(--line);border-radius:10px;padding:12px;white-space:pre-wrap;margin-top:10px}
+.small{font-size:.85rem;color:var(--mute)}
+.pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.85rem;border:1px solid var(--line);margin:2px 4px 2px 0}
+.ok{color:var(--ok)}.bad{color:var(--bad)}
+.warn{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:10px 12px;margin:10px 0;font-size:.92rem}.warn:empty{display:none}
+.bar{height:6px;background:var(--line);border-radius:6px;overflow:hidden;margin:6px 0 12px}.bar>i{display:block;height:100%;background:var(--brand);width:0}
+.who{font-size:1.25rem;font-weight:700}.num{color:var(--mute);margin-bottom:8px}
+details{margin-top:10px}summary{cursor:pointer;color:var(--brand);font-weight:600}
+.list button{justify-content:space-between;min-height:42px;font-weight:500;margin-top:6px}
+.chk{display:flex;gap:10px;align-items:flex-start;margin:12px 0}.chk input{margin-top:4px;width:20px;height:20px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+<h1>Text From Sheet</h1>
+<p class="sub">Upload a list, write one message, then send each text yourself from your own phone. Your list never leaves this device.</p>
+
+<div id="resume" class="card" hidden>
+  <strong>Pick up where you left off?</strong>
+  <p class="small" id="resumeInfo"></p>
+  <div class="row"><button class="primary" id="resumeBtn">Resume</button><button id="discardBtn">Start new</button></div>
+</div>
+
+<section id="s1" class="card">
+  <h2><span class="n">1</span> Add your list</h2>
+  <label class="filebtn"><input type="file" id="file" accept=".csv,.txt,text/csv,text/plain,.tsv">Choose CSV file</label>
+  <details><summary>Or paste numbers</summary>
+    <textarea id="paste" placeholder="One number per line&#10;+1 801 555 0101&#10;(801) 555-0102"></textarea>
+    <div class="row"><button id="usePaste">Use these numbers</button></div>
+  </details>
+  <details><summary>Settings</summary>
+    <p class="small">Country code for numbers that don't start with “+” (1 = US/Canada):</p>
+    <input type="text" id="cc" value="1" inputmode="numeric" maxlength="3">
+  </details>
+  <p class="hint">Your CSV needs a phone column (like “Phone”). Optional: “First Name”, “Last Name”, or any other columns you want to use in the message. <a href="#" id="sample">Download a sample CSV</a></p>
+  <div id="summary" aria-live="polite"></div>
+</section>
+
+<section id="s2" class="card" hidden>
+  <h2><span class="n">2</span> Write your message</h2>
+  <textarea id="msg" placeholder="Hi {first_name}, …"></textarea>
+  <div class="small">Tap to insert a name or other column:</div>
+  <div class="chips" id="chips"></div>
+  <p class="small">If a value is blank for someone, use this instead (leave empty to hold that person back for you to fix):</p>
+  <input type="text" id="fb" placeholder="e.g. there">
+  <div class="chk"><input type="checkbox" id="optOn"><label for="optOn">Add an opt-out line to the end</label></div>
+  <input type="text" id="optText" value="Reply STOP to opt out." hidden>
+  <div class="small">Preview for <span id="pvName"></span>:</div>
+  <div class="preview" id="preview"></div>
+  <div class="small" id="count"></div>
+  <div class="chk"><input type="checkbox" id="ok"><label for="ok">I have permission to text these people. I'll review every message before it goes out.</label></div>
+  <button class="primary" id="start" disabled>Start reviewing</button>
+</section>
+
+<section id="s3" class="card" hidden>
+  <h2><span class="n">3</span> Review and send</h2>
+  <div class="small"><span id="prog"></span></div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="who" id="who"></div><div class="num" id="num"></div>
+  <textarea id="cardmsg" aria-label="Message for this person"></textarea>
+  <div class="warn" id="warn"></div>
+  <a class="btn primary" id="open" href="#">Open in Messages</a>
+  <p class="small">Tap above, press Send in your messaging app, then come back here.</p>
+  <div class="row"><button id="sent">Sent ✓ Next</button><button id="skip">Skip</button></div>
+  <div class="row"><button id="back">← Back</button><button id="export">Download log</button></div>
+  <details><summary>All recipients</summary><div class="list" id="list"></div></details>
+  <div class="row"><button id="reset">Start over</button></div>
+</section>
+
+<section id="done" class="card" hidden>
+  <h2>All done</h2>
+  <p id="doneInfo"></p>
+  <div class="row"><button class="primary" id="export2">Download log (CSV)</button><button id="backToReview">Review list</button></div>
+</section>
+</main>
+
+<script>
+"use strict";
+/* ================= core logic (pure functions, tested in tests/web_test.js) ================= */
+const SMS=(()=>{
+  const key=s=>String(s==null?"":s).toLowerCase().replace(/[^a-z0-9]/g,"");
+  const PHONE_KEYS=["phone","phonenumber","mobile","mobilenumber","cell","cellphone","cellnumber","number","tel","telephone","sms","whatsapp"];
+  const FIRST_KEYS=["firstname","first","fname","givenname"], LAST_KEYS=["lastname","last","lname","surname","familyname"];
+  const OPT_KEYS=["optout","optedout","unsubscribed","donottext","donotcontact","dnc","stop"];
+  const TRUTHY=/^(yes|y|true|1|x|stop|opted out|optout|unsubscribed|dnc)$/i;
+  const AFFIRM=/^(yes|y|true|1|opted in|opt in|opt-in|granted)$/i;
+  const SENSITIVE=[[/\b\d{3}-?\d{2}-?\d{4}\b/,"looks like a Social Security number"],[/\b(?:\d[ -]?){13,19}\b/,"looks like a card or account number"]];
+
+  function parseCSV(text){
+    text=String(text).replace(/^﻿/,"");
+    const first=text.split(/\r?\n/,1)[0]||"";
+    const best=[",",";","\t"].map(d=>[d,first.split(d).length-1]).sort((a,b)=>b[1]-a[1])[0];
+    const D=best[1]?best[0]:",";
+    const rows=[];let row=[],cur="",q=false;
+    for(let i=0;i<text.length;i++){const c=text[i];
+      if(q){if(c==='"'){if(text[i+1]==='"'){cur+='"';i++}else q=false}else cur+=c}
+      else if(c==='"'&&cur==="")q=true;
+      else if(c===D){row.push(cur);cur=""}
+      else if(c==="\n"||c==="\r"){if(c==="\r"&&text[i+1]==="\n")i++;row.push(cur);cur="";rows.push(row);row=[]}
+      else cur+=c}
+    if(cur!==""||row.length){row.push(cur);rows.push(row)}
+    return rows.filter(r=>r.some(v=>v.trim()!==""));
+  }
+
+  function normalizePhone(raw,cc){
+    cc=String(cc||"1").replace(/\D/g,"")||"1";
+    const s=String(raw==null?"":raw).trim();
+    if(!s)return{error:"no phone number"};
+    if(/\d[eE][+-]?\d/.test(s))return{error:"damaged by Excel (scientific notation)"};
+    if(/(ext\.?|x)\s*\d+\s*$/i.test(s))return{error:"has an extension"};
+    if(/[A-Za-z]/.test(s))return{error:"contains letters"};
+    const plus=s.startsWith("+")||s.startsWith("00");
+    let d=s.replace(/\D/g,"");if(s.startsWith("00"))d=d.slice(2);
+    let e;
+    if(plus){if(d.length<8||d.length>15)return{error:"wrong length"};e="+"+d}
+    else if(cc==="1"){if(d.length===10)e="+1"+d;else if(d.length===11&&d[0]==="1")e="+"+d;else return{error:"needs an area code or a + country code"}}
+    else{d=d.replace(/^0+/,"");if(d.length<6||d.length+cc.length>15)return{error:"wrong length"};e="+"+cc+d}
+    if(e.startsWith("+1")&&!/^\+1[2-9]\d{2}[2-9]\d{6}$/.test(e))return{error:"not a valid US/Canada number"};
+    return{phone:e};
+  }
+
+  function buildContacts(rows,cc){
+    if(!rows.length)return{error:"That file is empty."};
+    let headers=rows[0].map(h=>h.trim()),body=rows.slice(1);
+    let pi=headers.findIndex(h=>PHONE_KEYS.includes(key(h)));
+    if(pi<0){
+      const cand=headers.findIndex(h=>normalizePhone(h,cc).phone);
+      if(cand>=0){headers=headers.map((_,i)=>i===cand?"Phone":"Column "+(i+1));body=rows;pi=cand}
+      else{
+        let bestI=-1,bestR=0;
+        headers.forEach((_,i)=>{const vals=body.map(r=>(r[i]||"").trim()).filter(Boolean);
+          if(!vals.length)return;const r=vals.filter(v=>normalizePhone(v,cc).phone).length/vals.length;
+          if(r>bestR){bestR=r;bestI=i}});
+        if(bestR>=0.6)pi=bestI;
+      }
+    }
+    if(pi<0)return{error:"I couldn't find a phone column. Add a column named “Phone”."};
+    const fi=headers.findIndex(h=>FIRST_KEYS.includes(key(h))),li=headers.findIndex(h=>LAST_KEYS.includes(key(h))),ni=headers.findIndex(h=>key(h)==="name");
+    const optIdx=headers.map((h,i)=>OPT_KEYS.includes(key(h))?i:-1).filter(i=>i>=0);
+    const consIdx=headers.findIndex(h=>key(h)==="consent");
+    const contacts=[],problems=[],seen=new Map();
+    body.forEach((r,idx)=>{
+      const rowNo=idx+(body===rows?1:2);
+      const get=i=>i>=0?String(r[i]==null?"":r[i]).trim():"";
+      const label=(get(fi)||get(ni)||get(pi)||("row "+rowNo));
+      const bad=reason=>problems.push({row:rowNo,label,reason});
+      const n=normalizePhone(get(pi),cc);
+      if(n.error)return bad(n.error);
+      if(optIdx.some(i=>TRUTHY.test(get(i))))return bad("marked opted out / do not text");
+      if(consIdx>=0&&!AFFIRM.test(get(consIdx)))return bad("consent column is not “yes”");
+      if(seen.has(n.phone))return bad("duplicate of row "+seen.get(n.phone));
+      seen.set(n.phone,rowNo);
+      const vals={};headers.forEach((h,i)=>{if(key(h))vals[key(h)]=get(i)});
+      let first=get(fi),last=get(li);
+      if(!first&&ni>=0){const parts=get(ni).split(/\s+/);first=parts[0]||"";if(!last)last=parts.slice(1).join(" ")}
+      vals.firstname=first;vals.lastname=last;vals.name=get(ni)||[first,last].filter(Boolean).join(" ");vals.phone=n.phone;
+      contacts.push({id:contacts.length,row:rowNo,name:vals.name||n.phone,phone:n.phone,vals,status:"pending",override:null});
+    });
+    const cols=headers.filter((h,i)=>h&&i!==pi);
+    return{contacts,problems,columns:cols};
+  }
+
+  function render(template,vals,fallback){
+    const missing=[];
+    let text=String(template).replace(/\{([^{}]+)\}/g,(m,tok)=>{
+      const k=key(tok);const alias={first:"firstname",last:"lastname",fullname:"name"}[k]||k;
+      const v=vals[alias];
+      if(v)return v;
+      if(fallback)return fallback;
+      missing.push(tok.trim());return m;
+    });
+    return{text:text.trim(),missing};
+  }
+
+  function issues(text){
+    const out=[];
+    if(!text.trim())out.push("The message is empty.");
+    const un=text.match(/\{[^{}]+\}/g);
+    if(un)out.push("Unfilled placeholder: "+[...new Set(un)].join(", ")+". Edit it or skip this person.");
+    SENSITIVE.forEach(([re,why])=>{if(re.test(text))out.push("This "+why+". Don't send sensitive data by text.")});
+    return out;
+  }
+
+  function smsHref(phone,body,ua){
+    const ios=/iPhone|iPad|iPod/.test(ua||"");
+    return "sms:"+phone+(ios?"&":"?")+"body="+encodeURIComponent(body);
+  }
+
+  const q=s=>'"'+String(s==null?"":s).replace(/"/g,'""')+'"';
+  function logCSV(contacts,now){
+    const lines=["timestamp,name,phone,status,message"];
+    contacts.forEach(c=>lines.push([q(now),q(c.name),q(c.phone),q(c.status),q(c.finalText||"")].join(",")));
+    return lines.join("\n");
+  }
+  return{parseCSV,normalizePhone,buildContacts,render,issues,smsHref,logCSV,key};
+})();
+if(typeof window!=="undefined")window.SMS=SMS;
+
+/* ================= UI ================= */
+(()=>{
+  if(typeof document==="undefined")return;
+  const $=id=>document.getElementById(id);
+  const KEY="tfs_state_v1";
+  let S={contacts:[],problems:[],columns:[],idx:0,template:"",fallback:"",optOn:false,optText:"Reply STOP to opt out."};
+  const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+  const load=()=>{try{return JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){return null}};
+  const clear=()=>{try{localStorage.removeItem(KEY)}catch(e){}};
+
+  function loadText(text){
+    const res=SMS.buildContacts(SMS.parseCSV(text),$("cc").value);
+    if(res.error){$("summary").innerHTML="";const p=document.createElement("p");p.className="bad";p.textContent=res.error;$("summary").appendChild(p);$("s2").hidden=true;return res}
+    S.contacts=res.contacts;S.problems=res.problems;S.columns=res.columns;S.idx=0;
+    renderSummary();renderChips();
+    $("s2").hidden=S.contacts.length===0;$("s3").hidden=true;$("done").hidden=true;
+    if(!$("msg").value)$("msg").value=SMS.key(S.columns.join()).includes("firstname")||S.contacts.some(c=>c.vals.firstname)?"Hi {first_name}, ":"";
+    updatePreview();
+    return res;
+  }
+
+  function renderSummary(){
+    const el=$("summary");el.innerHTML="";
+    const mk=(txt,cls)=>{const s=document.createElement("span");s.className="pill "+(cls||"");s.textContent=txt;el.appendChild(s)};
+    mk(S.contacts.length+" ready","ok");
+    if(S.problems.length)mk(S.problems.length+" skipped","bad");
+    if(S.problems.length){
+      const d=document.createElement("details"),sm=document.createElement("summary");sm.textContent="See skipped rows";d.appendChild(sm);
+      S.problems.forEach(p=>{const l=document.createElement("div");l.className="small";l.textContent="Row "+p.row+" ("+p.label+"): "+p.reason;d.appendChild(l)});
+      el.appendChild(d);
+    }
+  }
+  function renderChips(){
+    const box=$("chips");box.innerHTML="";
+    const names=["first_name",...S.columns.filter(c=>!["firstname","first"].includes(SMS.key(c)))];
+    [...new Set(names)].forEach(n=>{const b=document.createElement("button");b.type="button";b.className="chip";b.textContent="{"+n+"}";
+      b.onclick=()=>{const t=$("msg"),s=t.selectionStart||t.value.length,e=t.selectionEnd||s,tok="{"+n+"}";t.value=t.value.slice(0,s)+tok+t.value.slice(e);t.focus();t.selectionStart=t.selectionEnd=s+tok.length;updatePreview()};
+      box.appendChild(b)});
+  }
+  function finalFor(c){
+    const r=SMS.render(S.template,c.vals,S.fallback);
+    let t=r.text;if(S.optOn&&S.optText.trim()&&t&&!r.missing.length)t+=" "+S.optText.trim();
+    return t;
+  }
+  function updatePreview(){
+    S.template=$("msg").value;S.fallback=$("fb").value.trim();S.optOn=$("optOn").checked;S.optText=$("optText").value;
+    $("optText").hidden=!S.optOn;
+    const c=S.contacts[0];
+    $("pvName").textContent=c?c.name:"…";
+    const t=c?finalFor(c):"";
+    $("preview").textContent=t||"(your message appears here)";
+    $("count").textContent=t.length+" characters"+(t.length>160?" · may be split into more than one text":"");
+    $("start").disabled=!($("ok").checked&&S.template.trim()&&S.contacts.length);
+  }
+
+  function showCard(){
+    const c=S.contacts[S.idx];
+    if(!c){finish();return}
+    $("s1").hidden=true;$("s2").hidden=true;$("s3").hidden=false;$("done").hidden=true;
+    $("who").textContent=c.name;$("num").textContent=c.phone;
+    $("prog").textContent=(S.idx+1)+" of "+S.contacts.length;
+    $("bar").style.width=(S.idx/S.contacts.length*100)+"%";
+    $("cardmsg").value=c.override!=null?c.override:finalFor(c);
+    gate();renderList();save();
+  }
+  function gate(){
+    const c=S.contacts[S.idx];if(!c)return;
+    const t=$("cardmsg").value,iss=SMS.issues(t);
+    $("warn").textContent=iss.join(" ");
+    const a=$("open");
+    if(iss.length){a.setAttribute("aria-disabled","true");a.removeAttribute("href")}
+    else{a.removeAttribute("aria-disabled");a.setAttribute("href",SMS.smsHref(c.phone,t,navigator.userAgent))}
+  }
+  const ICON={pending:"○",opened:"◐",sent:"✓",skipped:"–"};
+  function renderList(){
+    const box=$("list");box.innerHTML="";
+    S.contacts.forEach((c,i)=>{const b=document.createElement("button");b.type="button";b.textContent=c.name+"  "+ICON[c.status]+" "+c.status+(i===S.idx?"  ◀":"");b.onclick=()=>{S.idx=i;showCard()};box.appendChild(b)});
+  }
+  function finish(){
+    $("s3").hidden=true;$("done").hidden=false;
+    const n=k=>S.contacts.filter(c=>c.status===k).length;
+    $("doneInfo").textContent=n("sent")+" marked sent, "+n("skipped")+" skipped, "+(n("pending")+n("opened"))+" not finished. The log records what you marked, not delivery: check your Messages app for delivery.";
+    save();
+  }
+  function download(){
+    S.contacts.forEach(c=>{if(!c.finalText)c.finalText=c.override!=null?c.override:finalFor(c)});
+    const blob=new Blob([SMS.logCSV(S.contacts,new Date().toISOString())],{type:"text/csv"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="text-log-"+new Date().toISOString().slice(0,10)+".csv";document.body.appendChild(a);a.click();a.remove();
+  }
+  function mark(status){const c=S.contacts[S.idx];if(!c)return;c.finalText=$("cardmsg").value;c.status=status;}
+
+  $("file").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>loadText(String(r.result));r.readAsText(f)});
+  $("usePaste").onclick=()=>{const lines=$("paste").value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);loadText("Phone\n"+lines.map(l=>'"'+l.replace(/"/g,'""')+'"').join("\n"))};
+  $("cc").addEventListener("change",()=>{});
+  ["msg","fb","optOn","optText","ok"].forEach(id=>$(id).addEventListener("input",updatePreview));
+  $("optOn").addEventListener("change",updatePreview);$("ok").addEventListener("change",updatePreview);
+  $("start").onclick=()=>{updatePreview();S.idx=0;showCard()};
+  $("cardmsg").addEventListener("input",()=>{const c=S.contacts[S.idx];if(c){c.override=$("cardmsg").value;gate();save()}});
+  $("open").addEventListener("click",e=>{if($("open").getAttribute("aria-disabled")==="true"){e.preventDefault();return}const c=S.contacts[S.idx];if(c&&c.status!=="sent"){mark("opened");save();renderList()}});
+  $("sent").onclick=()=>{mark("sent");S.idx++;showCard()};
+  $("skip").onclick=()=>{mark("skipped");S.idx++;showCard()};
+  $("back").onclick=()=>{if(S.idx>0){S.idx--;showCard()}};
+  $("export").onclick=download;$("export2").onclick=download;
+  $("backToReview").onclick=()=>{S.idx=0;showCard()};
+  $("reset").onclick=()=>{if(confirm("Clear this list and start over?")){clear();location.reload()}};
+  $("discardBtn").onclick=()=>{clear();$("resume").hidden=true};
+  $("resumeBtn").onclick=()=>{const s=load();if(s){S=s;$("msg").value=S.template;$("fb").value=S.fallback;$("optOn").checked=S.optOn;$("optText").value=S.optText;$("ok").checked=true;$("resume").hidden=true;showCard()}};
+  $("sample").onclick=e=>{e.preventDefault();const csv="First Name,Last Name,Phone,Event\nAva,Martinez,+1 801 555 0101,Friday dinner\nBen,Carter,801-555-0102,Friday dinner\nChloe,Nguyen,(801) 555-0103,Saturday hike\n";
+    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="sample_contacts.csv";document.body.appendChild(a);a.click();a.remove()};
+
+  const saved=load();
+  if(saved&&saved.contacts&&saved.contacts.length&&saved.idx<saved.contacts.length){
+    $("resume").hidden=false;
+    $("resumeInfo").textContent=saved.contacts.filter(c=>c.status==="sent").length+" of "+saved.contacts.length+" marked sent. Saved only on this phone.";
+  }
+  window.SMSUI={loadText,state:()=>S,showCard,updatePreview};
+})();
+</script>
+</body>
+</html>

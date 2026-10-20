@@ -1,0 +1,27 @@
+{
+  "_comment": "Message templates. service_eligible=true means a row may be treated as a non-marketing (service) message ONLY if the CSV 'Message Type' column explicitly says 'service'. Everything else is treated as marketing and needs consent date + source. Placeholders in {braces} are filled from config.json and CSV columns. No opt-out line is added unless you set optout_text in config.json and add {optout} to a template. Nothing is ever invented: a missing required field rejects the row.",
+  "appointment_reminder": {
+    "name": "Appointment reminder",
+    "service_eligible": true,
+    "required": ["first_name", "appointment_date", "appointment_time"],
+    "body": "Hi {first_name}, this is a reminder of your appointment with {agent_name} at {business_name} on {appointment_date} at {appointment_time}. Reply to confirm or reschedule."
+  },
+  "client_followup": {
+    "name": "Client follow-up",
+    "service_eligible": true,
+    "required": ["first_name"],
+    "body": "Hi {first_name}, this is {agent_name} at {business_name}. I wanted to follow up on our recent conversation. Is there a good time this week to talk?"
+  },
+  "event_invitation": {
+    "name": "Event invitation",
+    "service_eligible": false,
+    "required": ["first_name", "event_name", "event_date"],
+    "body": "Hi {first_name}, {business_name} is hosting {event_name} on {event_date}. You're welcome to join. Reply YES if you'd like details."
+  },
+  "general": {
+    "name": "General communication (wraps your own Message text)",
+    "service_eligible": true,
+    "required": ["first_name", "custom_message"],
+    "body": "Hi {first_name}, this is {agent_name} at {business_name}. {custom_message}"
+  }
+}

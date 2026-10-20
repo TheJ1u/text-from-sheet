@@ -1,0 +1,12 @@
+# never commit real contacts, logs, or secrets
+*.csv
+!data/sample_contacts.csv
+!data/suppression_list.csv
+send_log.csv
+STOP
+data/config.json
+.env
+out/
+__pycache__/
+*.pyc
+node_modules/
