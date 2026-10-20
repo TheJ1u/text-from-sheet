@@ -12,3 +12,6 @@
 
 ## Birthday automation: still unverified
 Built and tested with a fake clock and fake phone commands. Not yet confirmed on a real phone: that `cron` runs inside Termux after the one-time restart, that the phone stays awake enough, and that Android lets Termux send while the screen is off. Check `birthday_log.txt` after the first real birthday.
+
+## Picture mode: still unverified
+Built and tested with fakes. On a real phone, confirm: the Messages app opens with the picture attached, whether it fills in the number (if not, paste), and that the text comes through with the picture (some apps drop one of the two).

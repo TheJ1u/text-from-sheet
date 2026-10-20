@@ -25,3 +25,11 @@ Invalid / Excel-damaged numbers skipped with a reason; duplicates removed; rows 
 - Very long messages may split or turn into MMS depending on the carrier/app.
 - The log records what the person tapped, not delivery.
 - iPhone: the same page should work (it uses `&body=` on iOS), also untested.
+
+## Pictures and files
+In step 2, tap **Add a picture or file**. In step 3 the button becomes **Share text + picture**: it copies the person's number, then opens your phone's share screen with the message and picture. Pick Messages, paste the number into To, press Send, come back, tap **Sent ✓ Next**.
+
+- Works in browsers that can share files (Chrome on Android, Safari on iPhone). Others show a message suggesting a link instead.
+- The picture stays only in the page's memory. If you leave and come back, choose it again (the page tells you).
+- PDFs and big files often can't go by text; the page warns you. A link is more reliable.
+- Not yet tested on a real phone.

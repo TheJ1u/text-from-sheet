@@ -36,7 +36,7 @@ class WidgetTests(unittest.TestCase):
         r = self.sh("install_widgets.sh", stdin="Hi {first_name}, dinner Friday?\nfall-dinner\n\n")
         self.assertEqual(r.returncode, 0, r.stderr)
         names = sorted(p.name for p in (self.home / ".shortcuts").iterdir())
-        self.assertEqual(names, ["Text-0-Check-setup", "Text-1-Preview", "Text-2-Send-test-to-me", "Text-3-Start", "Text-4-Status", "Text-5-Stop", "Text-6-Change-message", "Text-7-Do-not-text", "Text-8-Check-replies", "Text-9-Birthday-setup"])
+        self.assertEqual(names, ["Text-0-Check-setup", "Text-1-Preview", "Text-2-Send-test-to-me", "Text-3-Start", "Text-4-Status", "Text-5-Stop", "Text-6-Change-message", "Text-7-Do-not-text", "Text-8-Check-replies", "Text-9-Birthday-setup", "Text-P-Send-with-picture"])
         for p in (self.home / ".shortcuts").iterdir():
             self.assertTrue(os.access(p, os.X_OK))
             self.assertIn("widgets/", p.read_text())
@@ -84,7 +84,7 @@ class WidgetTests(unittest.TestCase):
 
     def test_all_sending_scripts_use_the_do_not_text_list(self):
         self.assertIn("--suppression do_not_text.csv", (WID / "common.sh").read_text())
-        for f in ("preview.sh", "start.sh", "status.sh", "send_test.sh"):
+        for f in ("preview.sh", "start.sh", "status.sh", "send_test.sh", "picture_send.sh"):
             self.assertIn("$FLAGS", (WID / f).read_text(), f)
 
     def test_consent_required_choice_is_saved_and_enforced(self):
@@ -150,6 +150,17 @@ class WidgetTests(unittest.TestCase):
         subprocess.run(["bash", str(self.tool / "widgets" / "birthday_run.sh")], env=self.env, cwd=self.home, timeout=60)
         self.assertIn("Not sending", (self.tool / "birthday_log.txt").read_text())
         self.assertFalse((self.tool / "send_log.csv").exists())
+
+    def test_picture_button_explains_where_to_put_the_picture(self):
+        self.sh("set_message.sh", stdin="Hi {first_name}!\nt1\n\n")
+        r = self.sh("picture_send.sh", stdin="\n")
+        self.assertIn("Save it in Downloads named picture.jpg", r.stdout)
+        dl = self.home / "storage" / "downloads"
+        dl.mkdir(parents=True)
+        (dl / "picture.jpg").write_bytes(b"\xff\xd8fake")
+        r = self.sh("picture_send.sh", stdin="\n")
+        self.assertIn("Picture/file: picture.jpg", r.stdout)
+        self.assertIn("only works inside Termux", r.stdout)       # no Android here, so nothing opens
 
     def test_start_script_never_bypasses_the_typed_approval(self):
         src = (WID / "start.sh").read_text()

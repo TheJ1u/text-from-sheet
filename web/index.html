@@ -20,6 +20,7 @@ h2{font-size:1.05rem;margin:0 0 10px;display:flex;gap:10px;align-items:center}
 .hint{color:var(--mute);font-size:.9rem;margin:10px 0 0}
 label.filebtn,button,a.btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 16px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:600 1rem system-ui,sans-serif;text-decoration:none;cursor:pointer;width:100%}
 label.filebtn input{display:none}
+label.filebtn.alt{background:var(--card);color:var(--ink);border-color:var(--line);margin-top:8px}
 .primary,label.filebtn{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
 button.primary:disabled,a.btn[aria-disabled=true]{opacity:.45;pointer-events:none}
 .row{display:flex;gap:8px;margin-top:10px}.row>*{flex:1}
@@ -76,6 +77,10 @@ details{margin-top:10px}summary{cursor:pointer;color:var(--brand);font-weight:60
   <div class="small">Preview for <span id="pvName"></span>:</div>
   <div class="preview" id="preview"></div>
   <div class="small" id="count"></div>
+  <div class="small" style="margin-top:12px"><strong>Picture or file (optional)</strong></div>
+  <label class="filebtn alt"><input type="file" id="pic" accept="image/*,application/pdf,.pdf,.vcf,text/vcard">Add a picture or file</label>
+  <div class="small" id="picInfo"></div>
+  <div class="warn" id="picWarn"></div>
   <div class="chk"><input type="checkbox" id="ok"><label for="ok">I have permission to text these people. I'll review every message before it goes out.</label></div>
   <button class="primary" id="start" disabled>Start reviewing</button>
 </section>
@@ -87,8 +92,11 @@ details{margin-top:10px}summary{cursor:pointer;color:var(--brand);font-weight:60
   <div class="who" id="who"></div><div class="num" id="num"></div>
   <textarea id="cardmsg" aria-label="Message for this person"></textarea>
   <div class="warn" id="warn"></div>
+  <div class="small" id="picCardInfo" hidden></div>
+  <label class="filebtn alt" id="picCardBtn" hidden><input type="file" id="picCard" accept="image/*,application/pdf,.pdf,.vcf,text/vcard">Choose the picture again</label>
+  <button class="primary" id="share" hidden>Share text + picture</button>
   <a class="btn primary" id="open" href="#">Open in Messages</a>
-  <p class="small">Tap above, press Send in your messaging app, then come back here.</p>
+  <p class="small" id="howto">Tap above, press Send in your messaging app, then come back here.</p>
   <div class="row"><button id="sent">Sent ✓ Next</button><button id="skip">Skip</button></div>
   <div class="row"><button id="back">← Back</button><button id="export">Download log</button></div>
   <details><summary>All recipients</summary><div class="list" id="list"></div></details>
@@ -214,13 +222,20 @@ const SMS=(()=>{
     return "sms:"+phone+(ios?"&":"?")+"body="+encodeURIComponent(body);
   }
 
+  function attachmentNotes(name,type,size){
+    const out=[];const n=String(name||"").toLowerCase();
+    if(type==="application/pdf"||n.endsWith(".pdf"))out.push("Many phones and carriers can't text a PDF. A link to the file in your message is more reliable.");
+    else if(!/^image\//.test(type||"")&&!/\.(jpe?g|png|gif|heic|webp)$/.test(n)&&!/vcard|\.vcf$/.test((type||"")+n))out.push("This kind of file often can't be sent by text. A link is more reliable.");
+    if(size>1500000)out.push("Big file ("+(size/1e6).toFixed(1)+" MB). Messages usually shrinks pictures; other files may be too big to send as a text.");
+    return out;
+  }
   const q=s=>'"'+String(s==null?"":s).replace(/"/g,'""')+'"';
   function logCSV(contacts,now){
-    const lines=["timestamp,name,phone,status,message"];
-    contacts.forEach(c=>lines.push([q(now),q(c.name),q(c.phone),q(c.status),q(c.finalText||"")].join(",")));
+    const lines=["timestamp,name,phone,status,message,attachment"];
+    contacts.forEach(c=>lines.push([q(now),q(c.name),q(c.phone),q(c.status),q(c.finalText||""),q(c.attachment||"")].join(",")));
     return lines.join("\n");
   }
-  return{parseCSV,normalizePhone,buildContacts,render,issues,smsHref,logCSV,key};
+  return{parseCSV,normalizePhone,buildContacts,render,issues,smsHref,logCSV,key,attachmentNotes};
 })();
 if(typeof window!=="undefined")window.SMS=SMS;
 
@@ -229,7 +244,15 @@ if(typeof window!=="undefined")window.SMS=SMS;
   if(typeof document==="undefined")return;
   const $=id=>document.getElementById(id);
   const KEY="tfs_state_v1";
-  let S={contacts:[],problems:[],columns:[],idx:0,template:"",fallback:""};
+  let S={contacts:[],problems:[],columns:[],idx:0,template:"",fallback:"",picName:""};
+  let PIC=null;  // the picture/file itself stays in memory only (too big for saved progress)
+  const canShareFile=f=>{try{return !!(f&&navigator.canShare&&navigator.share&&navigator.canShare({files:[f]}))}catch(e){return false}};
+  function setPic(f){
+    PIC=f||null;S.picName=f?f.name:"";
+    $("picInfo").textContent=f?("Attached: "+f.name+" ("+Math.max(1,Math.round(f.size/1024))+" KB)"):"";
+    $("picWarn").textContent=f?SMS.attachmentNotes(f.name,f.type,f.size).join(" "):"";
+    save();if(!$("s3").hidden)showCard();
+  }
   const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
   const load=()=>{try{return JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){return null}};
   const clear=()=>{try{localStorage.removeItem(KEY)}catch(e){}};
@@ -295,6 +318,30 @@ if(typeof window!=="undefined")window.SMS=SMS;
     const a=$("open");
     if(iss.length){a.setAttribute("aria-disabled","true");a.removeAttribute("href")}
     else{a.removeAttribute("aria-disabled");a.setAttribute("href",SMS.smsHref(c.phone,t,navigator.userAgent))}
+    const wantPic=!!S.picName, havePic=!!PIC, sh=$("share");
+    $("picCardInfo").hidden=!wantPic;
+    $("picCardBtn").hidden=!(wantPic&&!havePic);
+    $("picCardInfo").textContent=!wantPic?"":havePic?("Picture: "+PIC.name):("Your picture (“"+S.picName+"”) isn't loaded. Choose it again to send it.");
+    sh.hidden=!wantPic;
+    sh.disabled=!!iss.length||!havePic;
+    a.hidden=wantPic;
+    $("howto").textContent=wantPic
+      ?"Tap Share, pick your Messages app, paste the number into To (it's already copied), press Send, then come back and tap Sent."
+      :"Tap above, press Send in your messaging app, then come back here.";
+    if(wantPic&&havePic&&!canShareFile(PIC))$("warn").textContent=(iss.join(" ")+" This browser can't attach pictures. Use Chrome on Android or Safari on iPhone, or put a link to the picture in your message.").trim();
+  }
+  async function sharePic(){
+    const c=S.contacts[S.idx];if(!c||!PIC||$("share").disabled)return;
+    const t=$("cardmsg").value;
+    if(SMS.issues(t).length)return;
+    if(!canShareFile(PIC)){gate();return}
+    try{if(navigator.clipboard)navigator.clipboard.writeText(c.phone).catch(()=>{})}catch(e){}
+    try{
+      await navigator.share({files:[PIC],text:t});
+      if(c.status!=="sent"){c.status="opened";c.attachment=PIC.name}
+      save();renderList();
+      $("warn").textContent="Shared. If you pressed Send in Messages, tap “Sent ✓ Next”.";
+    }catch(e){ /* closed the share screen: nothing happened */ }
   }
   const ICON={pending:"○",opened:"◐",sent:"✓",skipped:"–"};
   function renderList(){
@@ -312,9 +359,12 @@ if(typeof window!=="undefined")window.SMS=SMS;
     const blob=new Blob([SMS.logCSV(S.contacts,new Date().toISOString())],{type:"text/csv"});
     const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="text-log-"+new Date().toISOString().slice(0,10)+".csv";document.body.appendChild(a);a.click();a.remove();
   }
-  function mark(status){const c=S.contacts[S.idx];if(!c)return;c.finalText=$("cardmsg").value;c.status=status;}
+  function mark(status){const c=S.contacts[S.idx];if(!c)return;c.finalText=$("cardmsg").value;c.status=status;if(status==="sent")c.attachment=S.picName&&PIC?PIC.name:"";}
 
   $("file").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>loadText(String(r.result));r.readAsText(f)});
+  $("pic").addEventListener("change",e=>setPic(e.target.files[0]));
+  $("picCard").addEventListener("change",e=>setPic(e.target.files[0]));
+  $("share").addEventListener("click",sharePic);
   $("usePaste").onclick=()=>{const lines=$("paste").value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);loadText("Phone\n"+lines.map(l=>'"'+l.replace(/"/g,'""')+'"').join("\n"))};
   $("cc").addEventListener("change",()=>{});
   ["msg","fb","ok"].forEach(id=>$(id).addEventListener("input",updatePreview));
@@ -338,7 +388,7 @@ if(typeof window!=="undefined")window.SMS=SMS;
     $("resume").hidden=false;
     $("resumeInfo").textContent=saved.contacts.filter(c=>c.status==="sent").length+" of "+saved.contacts.length+" marked sent. Saved only on this phone.";
   }
-  window.SMSUI={loadText,state:()=>S,showCard,updatePreview};
+  window.SMSUI={loadText,state:()=>S,showCard,updatePreview,setPic,sharePic};
 })();
 </script>
 </body>
