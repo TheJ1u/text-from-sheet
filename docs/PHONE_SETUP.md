@@ -32,9 +32,21 @@ cp ~/storage/downloads/list.csv ~/text-tool/ && cd ~/text-tool
 ```
 bash ~/text-tool/widgets/install_widgets.sh
 ```
-3. Long-press the home screen > **Widgets** > **Termux:Widget** > add it. You get six buttons: Text-1-Preview, Text-2-Start, Text-3-Status, Text-4-Stop, Text-5-Change-message, Text-6-Do-not-text.
+3. Long-press the home screen > **Widgets** > **Termux:Widget** > add it. You get nine buttons:
 
-Tap 1 first (nothing is sent), then 2. Type YES, then SEND, when it asks. Anyone who replies stop: tap 6 and enter their number.
+| Button | What it does |
+|---|---|
+| Text-0-Check-setup | Checks everything is installed and allowed. Sends nothing. |
+| Text-1-Preview | Shows who will get what. Sends nothing. |
+| Text-2-Send-test-to-me | Sends ONE text, exactly as people will get it, to your own number. |
+| Text-3-Start | Starts the real send. Type YES, then SEND. |
+| Text-4-Status | Shows how many are done. |
+| Text-5-Stop | Stops after the current text. |
+| Text-6-Change-message | Changes the message (and whether a Consent column is required). |
+| Text-7-Do-not-text | Adds a number that must never be texted. |
+| Text-8-Check-replies | Finds people who texted back stop / remove me and offers to add them to the never-text list. |
+
+Order: 0, then 1, then 2, then 3. Run 8 now and then, and always before a new batch.
 
 ## Part 4: Preview (sends NOTHING)
 Change the words in quotes to your message first.

@@ -64,6 +64,9 @@ Export from Excel as **CSV (UTF-8)**; format phone cells as Text first.
 - No "yes to everything" flag: it always asks for YES and SEND after showing the preview.
 - Nothing here hides the activity from the phone or carrier. A personal number sending many similar texts can still be blocked by a carrier; keep the list to people who know the sender and expect to hear from him, and honor anyone who says stop (add to `--suppression` file or mark `Opt Out`).
 - Dual SIM: add `--sim 1` or `--sim 2`.
-- The send window uses the **phone's** time, not each recipient's. 8am Mountain is 7am Pacific. If your list spans time zones, narrow the window (for example `--window-start 9 --window-end 17`).
+- The send window uses the **phone's** time unless your list has a `Timezone` column (for example `America/Los_Angeles`). With that column, each person is texted only during 8am-6pm in their own time zone; people outside it are skipped for now and picked up later. An unknown time zone name holds that person back.
+- `--require-consent` refuses everyone unless a Consent column says yes (and refuses a list with no such column). Recommended for any marketing-type texts.
+- `--test-to YOUR_NUMBER` sends one test text to your own phone, then exits.
+- `python3 android/scan_replies.py list.csv` finds people who texted back stop and adds them to `do_not_text.csv`.
 - A `--suppression` file that doesn't exist is an error (not silently ignored), so a typo can't skip your do-not-text list.
 - Curly quotes, emoji and accents make a text count 70 characters per piece instead of 160. The preview warns you.

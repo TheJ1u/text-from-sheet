@@ -30,6 +30,7 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
 import sms_prep as sp  # noqa: E402  (normalize_phone, find_sensitive, read_contacts, constants)
@@ -86,7 +87,7 @@ def load_done_phones(log_path: Path, campaign: str) -> set:
     return {p for p, s in done.items() if s == "submitted"}
 
 
-def build_plan(rows, template, cc="1", suppression=frozenset(), done=frozenset(), fallback=""):
+def build_plan(rows, template, cc="1", suppression=frozenset(), done=frozenset(), fallback="", require_consent=False):
     ready, rejected, already = [], [], 0
     seen = set()
     for row_no, r, extra in rows:
@@ -109,9 +110,16 @@ def build_plan(rows, template, cc="1", suppression=frozenset(), done=frozenset()
         if status in sp.STATUS_SUPPRESSED:
             reject("status_suppressed")
             continue
-        if "consent" in r and r["consent"].strip().lower() not in sp.AFFIRMATIVE_CONSENT:
-            reject("no_affirmative_consent")
+        if ("consent" in r or require_consent) and r.get("consent", "").strip().lower() not in sp.AFFIRMATIVE_CONSENT:
+            reject("no_affirmative_consent" if "consent" in r else "no_consent_column")
             continue
+        tz = (r.get("timezone") or r.get("time zone") or "").strip()
+        if tz:
+            try:
+                ZoneInfo(tz)
+            except Exception:
+                reject("unknown_timezone:" + tz)
+                continue
         if e164 in suppression:
             reject("on_suppression_list")
             continue
@@ -132,7 +140,7 @@ def build_plan(rows, template, cc="1", suppression=frozenset(), done=frozenset()
         if e164 in done:
             already += 1
             continue
-        ready.append({"phone": e164, "name": name or e164, "message": text})
+        ready.append({"phone": e164, "name": name or e164, "message": text, "tz": tz})
     return {"ready": ready, "rejected": rejected, "already_done": already}
 
 
@@ -197,10 +205,36 @@ def next_window_open(now: datetime, window) -> datetime:
     return opens if opens > now else opens + timedelta(days=1)
 
 
+def now_for(now_fn, tz: str):
+    """Current time for a recipient. No timezone given = the phone's own clock."""
+    n = now_fn()
+    return n.astimezone(ZoneInfo(tz)) if tz else n
+
+
+def item_ok_now(item, now_fn, window) -> bool:
+    return in_window(now_for(now_fn, item.get("tz", "")), window)
+
+
 def estimate(n: int, interval: int, window) -> str:
     per_day = max(((window[1] - window[0]) * 3600) // interval, 1)
     days = -(-n // per_day)
     return f"about {n * interval / 3600:.1f} hours of sending, spread over {days} day{'s' if days != 1 else ''}"
+
+
+def send_test(ready, to_number, sender, log_path, campaign, cc="1"):
+    """Send ONE text (the first person's message, as it would really go) to the user's own number."""
+    e164, err = sp.normalize_phone(to_number, cc)
+    if err:
+        return False, f"your number is not valid: {err}"
+    if not ready:
+        return False, "no ready messages to test with"
+    text = ready[0]["message"]
+    ok, note = sender(e164, text)
+    append_log(log_path, {"timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                          "campaign": f"{campaign}-test", "phone": e164, "name": "TEST TO SELF",
+                          "status": "submitted" if ok else "failed", "delivery_confirmed": "unknown",
+                          "note": note, "message": text})
+    return ok, text if ok else note
 
 
 def run(ready, sender, sleep, log_path, campaign, interval, max_per_run, stop_file, out=print,
@@ -216,22 +250,34 @@ def run(ready, sender, sleep, log_path, campaign, interval, max_per_run, stop_fi
                 notify(msg)
             except Exception:
                 pass  # a notification problem must never stop or change sending
-    for i, item in enumerate(batch):
+    pending = list(batch)
+    done_n = 0
+    while pending:
         if Path(stop_file).exists():
             stopped = "STOP file found"
             break
         announced = False
-        while not in_window(now_fn(), window):          # outside 8am-6pm: wait, never send
+        item = None
+        while item is None:                              # next person whose own 8am-6pm window is open
+            item = next((x for x in pending if item_ok_now(x, now_fn, window)), None)
+            if item is not None:
+                break
             if not announced:
-                out(f"Outside the send window; waiting until {next_window_open(now_fn(), window):%a %I:%M %p}.")
-                tell(f"{sent + failed} of {len(batch)} done. Paused until {next_window_open(now_fn(), window):%a %I:%M %p}.")
+                if not pending[0].get("tz"):
+                    when = f"until {next_window_open(now_fn(), window):%a %I:%M %p}"
+                else:
+                    when = "for the next recipient's send window"
+                out(f"Outside the send window; waiting {when}.")
+                tell(f"{sent + failed} of {len(batch)} done. Paused, waiting {when}.")
                 announced = True
             if Path(stop_file).exists():
                 break
             sleep(30)
-        if Path(stop_file).exists():
+        if item is None or Path(stop_file).exists():
             stopped = "STOP file found"
             break
+        pending.remove(item)
+        done_n += 1
         ok, note = sender(item["phone"], item["message"])
         append_log(log_path, {
             "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"), "campaign": campaign,
@@ -247,8 +293,8 @@ def run(ready, sender, sleep, log_path, campaign, interval, max_per_run, stop_fi
                 stopped = f"{MAX_CONSECUTIVE_FAILURES} failures in a row (check SMS permission / signal)"
                 break
         tell(f"{sent + failed} of {len(batch)} done" + (f", {failed} failed" if failed else "") + f". Last: {item['name']}")
-        out(f"[{i + 1}/{len(batch)}] {item['name']}: {'submitted' if ok else 'FAILED - ' + note}")
-        if i < len(batch) - 1:
+        out(f"[{done_n}/{len(batch)}] {item['name']}: {'submitted' if ok else 'FAILED - ' + note}")
+        if pending:
             for _ in range(interval):
                 if Path(stop_file).exists():
                     break
@@ -274,6 +320,9 @@ def main(argv=None) -> int:
     ap.add_argument("--suppression", help="CSV of numbers never to text")
     ap.add_argument("--log", default="send_log.csv")
     ap.add_argument("--sim", help="SIM slot (1 or 2) on dual-SIM phones")
+    ap.add_argument("--require-consent", action="store_true",
+                    help="refuse anyone unless a Consent column says yes (also refuses lists with no Consent column)")
+    ap.add_argument("--test-to", metavar="NUMBER", help="send ONE test text (first person's message) to your own number, then exit")
     ap.add_argument("--status", action="store_true", help="show progress for this campaign and exit")
     ap.add_argument("--dry-run", action="store_true", help="preview only; sends nothing, writes nothing")
     args = ap.parse_args(argv)
@@ -292,7 +341,7 @@ def main(argv=None) -> int:
     log_path = Path(args.log)
     plan = build_plan(sp.read_contacts(Path(args.contacts)), template, args.country_code,
                       sp.load_suppression(args.suppression, args.country_code),
-                      load_done_phones(log_path, args.campaign), args.fallback)
+                      load_done_phones(log_path, args.campaign), args.fallback, args.require_consent)
     ready, rej = plan["ready"], plan["rejected"]
     if args.status:
         st = log_stats(log_path, args.campaign)
@@ -317,6 +366,10 @@ def main(argv=None) -> int:
     if odd:
         print(f"\nNote: {len(odd)} message(s) contain curly quotes, emoji or accents. Those send as shorter "
               "70-character pieces and may be split into several texts.")
+    linked = [i for i in ready if re.search(r"https?://|www\.", i["message"], re.I)]
+    if linked:
+        print(f"Note: {len(linked)} message(s) contain a link. Links make carrier spam filters more likely to act; "
+              "use your own website or a plain share link, and test with a couple of numbers first.")
     if long_:
         print(f"Note: {len(long_)} message(s) are over 160 characters and may go out as several linked texts.")
     print(f"\nThis run: {this_run} texts, one every {interval}s, {estimate(this_run, interval, window)}.")
@@ -328,6 +381,20 @@ def main(argv=None) -> int:
     if args.dry_run:
         print("\nDry run: nothing sent, nothing written.")
         return 0
+    if args.test_to:
+        if not ready:
+            print("Nothing to test with.")
+            return 2
+        if not shutil.which("termux-sms-send"):
+            print("termux-sms-send not found. Install Termux:API (app) and `pkg install termux-api`.")
+            return 2
+        print(f"\nTEST: this sends ONE text to {args.test_to} (your own number):\n  {ready[0]['message']}")
+        if input("Type SEND to send the test: ").strip() != "SEND":
+            print("Cancelled.")
+            return 1
+        ok, info = send_test(ready, args.test_to, termux_sender(args.sim), log_path, args.campaign, args.country_code)
+        print("Test text submitted. Check that it arrived on that phone." if ok else f"Test failed: {info}")
+        return 0 if ok else 1
     if not ready:
         print("Nothing to send.")
         return 0

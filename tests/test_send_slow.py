@@ -218,6 +218,47 @@ class Clock:
         self.t += timedelta(seconds=s)
 
 
+class TimezoneTests(unittest.TestCase):
+    def setUp(self):
+        import os, time
+        self._tz = os.environ.get("TZ")
+        os.environ["TZ"] = "UTC"
+        time.tzset()
+        self.tmp = tempfile.TemporaryDirectory()
+
+    def tearDown(self):
+        import os, time
+        if self._tz is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = self._tz
+        time.tzset()
+        self.tmp.cleanup()
+
+    def test_unknown_timezone_is_held_back(self):
+        plan = plan_for(csv_text="First Name,Phone,Timezone\nAva,801-555-0101,Mars/Base\n", template="Hi {first_name}")
+        self.assertIn("unknown_timezone", plan["rejected"][0]["reasons"])
+
+    def test_each_person_is_texted_only_inside_their_own_window(self):
+        # 15:00 UTC = 08:00 Los Angeles (in window) = 00:00 Tokyo (outside window)
+        clock = Clock(datetime(2026, 10, 20, 15, 0))
+        sent = []
+
+        def send(phone, text):
+            sent.append((phone, clock.now()))
+            return True, "ok"
+        items = [{"phone": "+81900000001", "name": "Tokyo", "message": "hi", "tz": "Asia/Tokyo"},
+                 {"phone": "+18015550101", "name": "LA", "message": "hi", "tz": "America/Los_Angeles"}]
+        res = ss.run(items, send, clock.sleep, Path(self.tmp.name) / "l.csv", "c", 65, 0, Path(self.tmp.name) / "STOP",
+                     out=lambda *_: None, now_fn=clock.now, window=(8, 18))
+        self.assertEqual(res["submitted"], 2)
+        self.assertEqual([p for p, _ in sent], ["+18015550101", "+81900000001"])   # LA first
+        la_local = sent[0][1].astimezone(ss.ZoneInfo("America/Los_Angeles"))
+        tokyo_local = sent[1][1].astimezone(ss.ZoneInfo("Asia/Tokyo"))
+        self.assertTrue(8 <= la_local.hour < 18)
+        self.assertTrue(8 <= tokyo_local.hour < 18)
+
+
 class WindowTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -335,6 +376,36 @@ class SafetyTests(unittest.TestCase):
             c.write_text("First Name,Phone\nAva,801-555-0101\n")
             rc = ss.main([str(c), "--message", "Hi", "--campaign", "x", "--suppression", str(Path(d) / "typo.csv"), "--dry-run"])
             self.assertEqual(rc, 2)
+
+    def test_require_consent_rejects_lists_without_consent_column(self):
+        plan = plan_for(csv_text="First Name,Phone\nAva,801-555-0101\n", template="Hi {first_name}", require_consent=True)
+        self.assertEqual(plan["ready"], [])
+        self.assertIn("no_consent_column", plan["rejected"][0]["reasons"])
+        ok = plan_for(csv_text="First Name,Phone\nAva,801-555-0101\n", template="Hi {first_name}")
+        self.assertEqual(len(ok["ready"]), 1)
+
+    def test_test_to_self_sends_first_message_and_logs_under_test_campaign(self):
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d) / "log.csv"
+            f = Fake()
+            ok, text = ss.send_test([{"phone": "+18015550101", "name": "Ava", "message": "Hi Ava"}], "(801) 555-0199", f.send, log, "fall")
+            self.assertTrue(ok)
+            self.assertEqual(f.sent, [("+18015550199", "Hi Ava")])
+            self.assertEqual(ss.load_done_phones(log, "fall"), set())        # real campaign untouched
+            self.assertEqual(ss.load_done_phones(log, "fall-test"), {"+18015550199"})
+            bad, why = ss.send_test([{"phone": "+1", "name": "x", "message": "m"}], "123", f.send, log, "fall")
+            self.assertFalse(bad)
+            self.assertEqual(len(f.sent), 1)
+
+    def test_preview_notes_links(self):
+        import io, contextlib
+        with tempfile.TemporaryDirectory() as d:
+            c = Path(d) / "c.csv"
+            c.write_text("First Name,Phone\nAva,801-555-0101\n")
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                ss.main([str(c), "--message", "Hi {first_name} https://example.com", "--campaign", "x", "--dry-run"])
+            self.assertIn("contain a link", buf.getvalue())
 
     def test_minimum_interval_constant(self):
         self.assertGreaterEqual(ss.MIN_INTERVAL, 60)

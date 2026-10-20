@@ -12,3 +12,4 @@ __pycache__/
 node_modules/
 message.txt
 campaign.txt
+require_consent.txt

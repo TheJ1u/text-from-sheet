@@ -7,5 +7,5 @@ NUM="$(printf '%s' "$NUM" | tr -cd '0-9+')"
 [ ${#NUM} -ge 10 ] || { echo "That doesn't look like a full phone number. Nothing saved."; pause; exit 1; }
 printf '%s\n' "$NUM" >> do_not_text.csv
 echo "Saved. $NUM will never be texted by this tool."
-echo "If a text is running, tap 'Text 4 Stop', then 'Text 2 Start' so it picks up the change."
+echo "If a text is running, tap 'Text-5-Stop', then 'Text-3-Start' so it picks up the change."
 pause
