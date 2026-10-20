@@ -73,8 +73,6 @@ details{margin-top:10px}summary{cursor:pointer;color:var(--brand);font-weight:60
   <div class="chips" id="chips"></div>
   <p class="small">If a value is blank for someone, use this instead (leave empty to hold that person back for you to fix):</p>
   <input type="text" id="fb" placeholder="e.g. there">
-  <div class="chk"><input type="checkbox" id="optOn"><label for="optOn">Add an opt-out line to the end</label></div>
-  <input type="text" id="optText" value="Reply STOP to opt out." hidden>
   <div class="small">Preview for <span id="pvName"></span>:</div>
   <div class="preview" id="preview"></div>
   <div class="small" id="count"></div>
@@ -231,7 +229,7 @@ if(typeof window!=="undefined")window.SMS=SMS;
   if(typeof document==="undefined")return;
   const $=id=>document.getElementById(id);
   const KEY="tfs_state_v1";
-  let S={contacts:[],problems:[],columns:[],idx:0,template:"",fallback:"",optOn:false,optText:"Reply STOP to opt out."};
+  let S={contacts:[],problems:[],columns:[],idx:0,template:"",fallback:""};
   const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
   const load=()=>{try{return JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){return null}};
   const clear=()=>{try{localStorage.removeItem(KEY)}catch(e){}};
@@ -267,12 +265,11 @@ if(typeof window!=="undefined")window.SMS=SMS;
   }
   function finalFor(c){
     const r=SMS.render(S.template,c.vals,S.fallback);
-    let t=r.text;if(S.optOn&&S.optText.trim()&&t&&!r.missing.length)t+=" "+S.optText.trim();
+    let t=r.text;
     return t;
   }
   function updatePreview(){
-    S.template=$("msg").value;S.fallback=$("fb").value.trim();S.optOn=$("optOn").checked;S.optText=$("optText").value;
-    $("optText").hidden=!S.optOn;
+    S.template=$("msg").value;S.fallback=$("fb").value.trim();
     const c=S.contacts[0];
     $("pvName").textContent=c?c.name:"…";
     const t=c?finalFor(c):"";
@@ -320,8 +317,8 @@ if(typeof window!=="undefined")window.SMS=SMS;
   $("file").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>loadText(String(r.result));r.readAsText(f)});
   $("usePaste").onclick=()=>{const lines=$("paste").value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);loadText("Phone\n"+lines.map(l=>'"'+l.replace(/"/g,'""')+'"').join("\n"))};
   $("cc").addEventListener("change",()=>{});
-  ["msg","fb","optOn","optText","ok"].forEach(id=>$(id).addEventListener("input",updatePreview));
-  $("optOn").addEventListener("change",updatePreview);$("ok").addEventListener("change",updatePreview);
+  ["msg","fb","ok"].forEach(id=>$(id).addEventListener("input",updatePreview));
+  $("ok").addEventListener("change",updatePreview);
   $("start").onclick=()=>{updatePreview();S.idx=0;showCard()};
   $("cardmsg").addEventListener("input",()=>{const c=S.contacts[S.idx];if(c){c.override=$("cardmsg").value;gate();save()}});
   $("open").addEventListener("click",e=>{if($("open").getAttribute("aria-disabled")==="true"){e.preventDefault();return}const c=S.contacts[S.idx];if(c&&c.status!=="sent"){mark("opened");save();renderList()}});
@@ -332,7 +329,7 @@ if(typeof window!=="undefined")window.SMS=SMS;
   $("backToReview").onclick=()=>{S.idx=0;showCard()};
   $("reset").onclick=()=>{if(confirm("Clear this list and start over?")){clear();location.reload()}};
   $("discardBtn").onclick=()=>{clear();$("resume").hidden=true};
-  $("resumeBtn").onclick=()=>{const s=load();if(s){S=s;$("msg").value=S.template;$("fb").value=S.fallback;$("optOn").checked=S.optOn;$("optText").value=S.optText;$("ok").checked=true;$("resume").hidden=true;showCard()}};
+  $("resumeBtn").onclick=()=>{const s=load();if(s){S=s;$("msg").value=S.template;$("fb").value=S.fallback;$("ok").checked=true;$("resume").hidden=true;showCard()}};
   $("sample").onclick=e=>{e.preventDefault();const csv="First Name,Last Name,Phone,Event\nAva,Martinez,+1 801 555 0101,Friday dinner\nBen,Carter,801-555-0102,Friday dinner\nChloe,Nguyen,(801) 555-0103,Saturday hike\n";
     const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="sample_contacts.csv";document.body.appendChild(a);a.click();a.remove()};
 

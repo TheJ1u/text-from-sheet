@@ -15,9 +15,10 @@ risky parts (bad numbers, duplicates, people who opted out, sensitive data, send
 | `android/send_slow.py` | Paced background sender for Android (Termux). One text ~every 65 s, only 8am-6pm, one up-front approval, resumable, stop switch, live notification, `--status`, `--dry-run` preview, log | Built; unit-tested with a fake sender |
 | `web/index.html` | Single-file web app (no server): upload CSV, merge fields, review each person, opens the SMS app pre-filled | Built; logic + flow tested in a simulated browser |
 | `tools/sms_prep.py` | Rules engine: phone normalization (E.164), consent / opt-out / suppression, dedupe, sensitive-data blocking, templates, resume | Built; 36 tests |
+| `widgets/` | One-tap home-screen buttons for Android (Termux:Widget): Preview, Start, Status, Stop, Change message, Do-not-text | Built; script-tested in a temp folder, not on a phone |
 | `docs/BUILD_SHORTCUT.md` | Exact build spec for an iPhone Shortcut version | Spec only; not built or tested on a device |
 
-**Honest status:** all logic is covered by automated tests (65 Python + 13 JavaScript). Nothing has yet been
+**Honest status:** all logic is covered by automated tests (77 Python + 13 JavaScript). Nothing has yet been
 tested on a physical phone; do the small real-number test in `docs/PHONE_SETUP.md` first.
 
 ## How the Android sender works
@@ -33,7 +34,7 @@ never invents a missing name, and the log records "submitted," never "delivered.
 
 ## Quick start
 ```
-python3 -m unittest discover -s tests                     # 65 tests
+python3 -m unittest discover -s tests                     # 77 tests
 python3 android/send_slow.py data/sample_contacts.csv --message "Hi {first_name}!" \
     --campaign demo --dry-run                             # preview only, sends nothing
 ```

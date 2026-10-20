@@ -142,7 +142,7 @@ t("UI flow: load -> message -> review -> open link -> sent -> skip -> done", () 
   assert.ok($("doneInfo").textContent.includes("1 marked sent, 2 skipped"));
 });
 
-t("UI: sensitive text blocks the Open link; opt-out line only when toggled on", () => {
+t("UI: sensitive text blocks the Open link; no opt-out line is ever added", () => {
   const w = page();
   const d = w.document, $ = id => d.getElementById(id);
   w.SMSUI.loadText("Phone\n801-555-0101");
@@ -150,9 +150,8 @@ t("UI: sensitive text blocks the Open link; opt-out line only when toggled on", 
   $("ok").checked = true;
   $("msg").dispatchEvent(new w.Event("input"));
   assert.strictEqual($("preview").textContent, "Hi there");
-  $("optOn").checked = true;
-  $("optOn").dispatchEvent(new w.Event("input"));
-  assert.strictEqual($("preview").textContent, "Hi there Reply STOP to opt out.");
+  assert.strictEqual($("optOn"), null);
+  assert.ok(!/opt-out line/i.test(html));
   $("start").click();
   $("cardmsg").value = "Your SSN is 123-45-6789";
   $("cardmsg").dispatchEvent(new w.Event("input"));

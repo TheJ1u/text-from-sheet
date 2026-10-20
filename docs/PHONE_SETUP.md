@@ -26,6 +26,16 @@ git clone https://github.com/TheJ1u/text-from-sheet ~/text-tool
 cp ~/storage/downloads/list.csv ~/text-tool/ && cd ~/text-tool
 ```
 
+## Optional: one-tap buttons on the home screen
+1. Install **Termux:Widget** (same steps as Part 1): https://f-droid.org/packages/com.termux.widget/
+2. In Termux, copy this box once. It asks for your message and adds the buttons:
+```
+bash ~/text-tool/widgets/install_widgets.sh
+```
+3. Long-press the home screen > **Widgets** > **Termux:Widget** > add it. You get six buttons: Text-1-Preview, Text-2-Start, Text-3-Status, Text-4-Stop, Text-5-Change-message, Text-6-Do-not-text.
+
+Tap 1 first (nothing is sent), then 2. Type YES, then SEND, when it asks. Anyone who replies stop: tap 6 and enter their number.
+
 ## Part 4: Preview (sends NOTHING)
 Change the words in quotes to your message first.
 ```

@@ -315,6 +315,27 @@ class SafetyTests(unittest.TestCase):
         self.assertIn('"SEND"', src)
         self.assertIn('"YES"', src)
 
+    def test_excel_cp1252_csv_with_accents_does_not_crash(self):
+        with tempfile.TemporaryDirectory() as d:
+            c = Path(d) / "c.csv"
+            c.write_bytes("First Name,Phone\nJos\xe9,801-555-0101\n".encode("cp1252"))
+            rows = ss.sp.read_contacts(c)
+            self.assertEqual(rows[0][1]["first_name"], "Jos\u00e9")
+
+    def test_semicolon_and_tab_delimited_csv(self):
+        with tempfile.TemporaryDirectory() as d:
+            for delim in (";", "\t"):
+                c = Path(d) / "c.csv"
+                c.write_text(f"First Name{delim}Phone\nBen{delim}801-555-0103\n", encoding="utf-8")
+                self.assertEqual(ss.sp.read_contacts(c)[0][1]["phone"], "801-555-0103")
+
+    def test_missing_suppression_file_refuses_to_run(self):
+        with tempfile.TemporaryDirectory() as d:
+            c = Path(d) / "c.csv"
+            c.write_text("First Name,Phone\nAva,801-555-0101\n")
+            rc = ss.main([str(c), "--message", "Hi", "--campaign", "x", "--suppression", str(Path(d) / "typo.csv"), "--dry-run"])
+            self.assertEqual(rc, 2)
+
     def test_minimum_interval_constant(self):
         self.assertGreaterEqual(ss.MIN_INTERVAL, 60)
 

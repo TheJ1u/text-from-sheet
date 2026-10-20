@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import io
 import json
 import re
 import sys
@@ -151,6 +152,24 @@ def canon_header(h: str) -> str:
     return HEADER_ALIASES.get(c, c)
 
 
+def read_text_tolerant(path) -> str:
+    """Read a CSV as UTF-8 (with or without BOM); fall back to Windows-1252, which is what Excel's plain
+    'CSV (Comma delimited)' export uses. Never crashes on accented names like José."""
+    raw = Path(path).read_bytes()
+    try:
+        return raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return raw.decode("cp1252", errors="replace")
+
+
+def sniff_delimiter(text: str) -> str:
+    """Comma normally; semicolon or tab when the header line clearly uses those (some Excel locales)."""
+    head = text.splitlines()[0] if text.strip() else ""
+    counts = {d: head.count(d) for d in (",", ";", "\t")}
+    best = max(counts, key=counts.get)
+    return best if counts[best] > 0 else ","
+
+
 def read_contacts(path: Path):
     """Return list of (row_number, dict-of-canonical-columns, extra_columns_flag)."""
     path = Path(path)
@@ -173,18 +192,18 @@ def read_contacts(path: Path):
                 d[h] = "" if v is None else str(v)
             rows.append((i, d, False))
         return rows
-    with open(path, newline="", encoding="utf-8-sig") as f:
-        reader = csv.reader(f)
-        try:
-            headers = [canon_header(h) for h in next(reader)]
-        except StopIteration:
-            return rows
-        for i, vals in enumerate(reader, start=2):
-            if not any(v.strip() for v in vals):
-                continue
-            extra = len(vals) > len(headers)
-            d = {h: (vals[j].strip() if j < len(vals) else "") for j, h in enumerate(headers)}
-            rows.append((i, d, extra))
+    text = read_text_tolerant(path)
+    reader = csv.reader(io.StringIO(text, newline=""), delimiter=sniff_delimiter(text))
+    try:
+        headers = [canon_header(h) for h in next(reader)]
+    except StopIteration:
+        return rows
+    for i, vals in enumerate(reader, start=2):
+        if not any(v.strip() for v in vals):
+            continue
+        extra = len(vals) > len(headers)
+        d = {h: (vals[j].strip() if j < len(vals) else "") for j, h in enumerate(headers)}
+        rows.append((i, d, extra))
     return rows
 
 

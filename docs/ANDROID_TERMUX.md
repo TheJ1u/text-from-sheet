@@ -1,6 +1,6 @@
 # Slow sender for Android (Termux): setup and use
 
-Sends one text about every minute from the phone's own number, only between 8am and 6pm (phone-local time), in the background, with one up-front approval. No per-run limit: 400 texts fit in one day's window. Script: `android/send_slow.py`. **Tested with a fake sender (18 tests). Not yet tested on a
+Sends one text about every minute from the phone's own number, only between 8am and 6pm (phone-local time), in the background, with one up-front approval. No per-run limit: 400 texts fit in one day's window. Script: `android/send_slow.py`. **Tested with a fake sender (automated tests). Not yet tested on a
 real phone; do the "first test" below before the real list.**
 
 ## One-time setup (about 15 minutes)
@@ -64,3 +64,6 @@ Export from Excel as **CSV (UTF-8)**; format phone cells as Text first.
 - No "yes to everything" flag: it always asks for YES and SEND after showing the preview.
 - Nothing here hides the activity from the phone or carrier. A personal number sending many similar texts can still be blocked by a carrier; keep the list to people who know the sender and expect to hear from him, and honor anyone who says stop (add to `--suppression` file or mark `Opt Out`).
 - Dual SIM: add `--sim 1` or `--sim 2`.
+- The send window uses the **phone's** time, not each recipient's. 8am Mountain is 7am Pacific. If your list spans time zones, narrow the window (for example `--window-start 9 --window-end 17`).
+- A `--suppression` file that doesn't exist is an error (not silently ignored), so a typo can't skip your do-not-text list.
+- Curly quotes, emoji and accents make a text count 70 characters per piece instead of 160. The preview warns you.

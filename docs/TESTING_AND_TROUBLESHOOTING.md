@@ -2,7 +2,7 @@
 
 ## A. Automated tests (done, run on this repo)
 ```
-python3 -m unittest discover -s tests -v      # 36 tests, all passing
+python3 -m unittest discover -s tests -v      # 77 tests, all passing
 python3 tools/sms_prep.py check data/sample_contacts.csv \
   --suppression data/suppression_list.csv --campaign demo --out out
 ```

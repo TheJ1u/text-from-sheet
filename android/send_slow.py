@@ -282,6 +282,10 @@ def main(argv=None) -> int:
         print("Send window must satisfy 0 <= start < end <= 24 (hours, phone-local time).")
         return 2
     window = (args.window_start, args.window_end)
+    if args.suppression and not Path(args.suppression).exists():
+        print(f"Do-not-text file not found: {args.suppression}. Refusing to continue, because a missing "
+              "file would silently skip your do-not-text list. Fix the name or create the file.")
+        return 2
     if args.interval < MIN_INTERVAL:
         print(f"Interval raised to the {MIN_INTERVAL}-second minimum.")
     template = args.message if args.message is not None else Path(args.message_file).read_text(encoding="utf-8").strip()
@@ -308,6 +312,13 @@ def main(argv=None) -> int:
     print("\nPreview:")
     for item in ready[:3]:
         print(f"  To {item['name']} {item['phone']}: {item['message']}")
+    odd = [i for i in ready if not i["message"].isascii()]
+    long_ = [i for i in ready if len(i["message"]) > 160]
+    if odd:
+        print(f"\nNote: {len(odd)} message(s) contain curly quotes, emoji or accents. Those send as shorter "
+              "70-character pieces and may be split into several texts.")
+    if long_:
+        print(f"Note: {len(long_)} message(s) are over 160 characters and may go out as several linked texts.")
     print(f"\nThis run: {this_run} texts, one every {interval}s, {estimate(this_run, interval, window)}.")
     print(f"Sends only {window[0]:02d}:00-{window[1]:02d}:00 phone-local time; pauses overnight and resumes by itself."
           f" It is {datetime.now():%a %I:%M %p} on this phone now.")
